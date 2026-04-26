@@ -144,3 +144,47 @@ export const HardenedResultSchema = z.object({
   evidence_binder: z.array(EvidenceItemSchema),
 });
 export type HardenedResult = z.infer<typeof HardenedResultSchema>;
+
+export const ExtractedCitationSchema = z.object({
+  id: z.string(),
+  type: z.enum([
+    "statute",
+    "regulation",
+    "case",
+    "guidance",
+    "schedule",
+    "treaty",
+    "other",
+  ]),
+  text: z.string(),
+  context: z.string(),
+  jurisdiction: z.string().nullable(),
+  lookup_query: z.string(),
+});
+export type ExtractedCitation = z.infer<typeof ExtractedCitationSchema>;
+
+export const CitationVerificationSchema = z.object({
+  citation_id: z.string(),
+  status: z.enum(["verified", "mismatch", "not_found", "ambiguous", "skipped"]),
+  source_url: z.string().nullable(),
+  source_title: z.string().nullable(),
+  source_quote: z.string().nullable(),
+  notes: z.string(),
+});
+export type CitationVerification = z.infer<typeof CitationVerificationSchema>;
+
+export const CitationVerificationResultSchema = z.object({
+  citations: z.array(ExtractedCitationSchema),
+  verifications: z.array(CitationVerificationSchema),
+  summary: z.object({
+    total: z.number(),
+    verified: z.number(),
+    mismatch: z.number(),
+    not_found: z.number(),
+    ambiguous: z.number(),
+    skipped: z.number(),
+  }),
+});
+export type CitationVerificationResult = z.infer<
+  typeof CitationVerificationResultSchema
+>;

@@ -9,6 +9,7 @@ import {
   ExtractedDocumentSchema,
   ResponseOptionSchema,
   EvidenceItemSchema,
+  CitationVerificationResultSchema,
 } from "@/lib/types";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
@@ -42,6 +43,7 @@ const BodySchema = z.object({
   option: ResponseOptionSchema,
   response: ResponseLetterSchema,
   evidence_binder: z.array(EvidenceItemSchema).optional(),
+  verification: CitationVerificationResultSchema.optional(),
 });
 
 type Body = z.infer<typeof BodySchema>;
@@ -184,10 +186,34 @@ async function buildPDF(body: Body): Promise<Uint8Array> {
   header(`I. Response letter (${body.response.language})`);
   paragraph(body.response.response_text, { size: 10 });
 
-  // Section 2: Attachments needed
+  // Section 2: Citation verification (from verify route)
+  if (body.verification && body.verification.summary.total > 0) {
+    newPage();
+    header("II. Citation verification (machine-checked against primary sources)");
+    const s = body.verification.summary;
+    paragraph(
+      `${s.verified} verified  ·  ${s.mismatch} mismatch  ·  ${s.not_found} not found  ·  ${s.ambiguous} ambiguous  ·  ${s.skipped} skipped  ·  ${s.total} total`,
+      { font: "bold", size: 10 },
+    );
+    y -= 4;
+    const byId = new Map(body.verification.citations.map((c) => [c.id, c]));
+    for (const v of body.verification.verifications) {
+      if (y < 140) newPage();
+      const c = byId.get(v.citation_id);
+      const tag = v.status.toUpperCase().replace(/_/g, " ");
+      paragraph(`[${tag}]  ${c?.text ?? v.citation_id}`, { font: "bold", size: 10 });
+      if (c?.context) paragraph(`Context: ${c.context}`, { size: 9 });
+      paragraph(`Notes: ${v.notes}`, { size: 9 });
+      if (v.source_quote) paragraph(`"${v.source_quote.slice(0, 400)}"`, { size: 9 });
+      if (v.source_url) paragraph(`URL: ${v.source_url}`, { size: 8, font: "mono" });
+      divider();
+    }
+  }
+
+  // Section 3: Attachments needed
   if (body.response.attachments_needed.length > 0) {
     newPage();
-    header("II. Attachments to send with the response");
+    header("III. Attachments to send with the response");
     for (const ex of body.response.attachments_needed) {
       if (y < 80) newPage();
       paragraph(ex.label, { font: "bold", size: 10 });
@@ -197,20 +223,20 @@ async function buildPDF(body: Body): Promise<Uint8Array> {
     }
   }
 
-  // Section 3: Next steps / deadlines
+  // Section 4: Next steps / deadlines
   if (body.response.next_steps.length > 0) {
     newPage();
-    header("III. Deadlines and next steps");
+    header("IV. Deadlines and next steps");
     for (const s of body.response.next_steps) {
       if (y < 60) newPage();
       paragraph(`${s.by_date}  —  ${s.action}`, { size: 10 });
     }
   }
 
-  // Section 4: Weak points + mitigations
+  // Section 5: Weak points + mitigations
   if (body.response.weak_points.length > 0) {
     newPage();
-    header("IV. Known weak points and mitigations");
+    header("V. Known weak points and mitigations");
     for (const w of body.response.weak_points) {
       if (y < 100) newPage();
       paragraph(`⚠  ${w.point}`, { font: "bold", size: 10 });
@@ -219,10 +245,10 @@ async function buildPDF(body: Body): Promise<Uint8Array> {
     }
   }
 
-  // Section 5: Evidence binder (from harden loop)
+  // Section 6: Evidence binder (from harden loop)
   if (body.evidence_binder && body.evidence_binder.length > 0) {
     newPage();
-    header("V. Evidence binder (gathered from public sources)");
+    header("VI. Evidence binder (gathered from public sources)");
     for (const e of body.evidence_binder) {
       if (y < 120) newPage();
       paragraph(e.source_title, { font: "bold", size: 10 });
@@ -234,9 +260,9 @@ async function buildPDF(body: Body): Promise<Uint8Array> {
     }
   }
 
-  // Section 6: Source documents (extracted facts)
+  // Section 7: Source documents (extracted facts)
   newPage();
-  header("VI. Original letter(s) and supporting documents (extracted)");
+  header("VII. Original letter(s) and supporting documents (extracted)");
   for (const d of body.documents) {
     if (y < 120) newPage();
     paragraph(`${d.title} — ${d.kind}`, { font: "bold", size: 10 });

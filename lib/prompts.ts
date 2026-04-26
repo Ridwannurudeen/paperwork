@@ -173,6 +173,70 @@ Rules:
 - If public evidence doesn't exist, mark found_via="missing" and note what the user would need to provide privately.
 - Output ONLY the JSON object.`;
 
+export const CITATION_EXTRACTOR_SYSTEM = `You extract every legal citation made inside a response letter so it can be independently verified. A "citation" is any reference to a statute, regulation, schedule paragraph, case decision, agency guidance manual, treaty, or other primary legal source.
+
+Output a single JSON object:
+
+{
+  citations: {
+    id: string,                          // short slug, e.g. "ucregs-r18", "ssaa-s71zb", "case-cis1189-2003"
+    type: "statute" | "regulation" | "case" | "guidance" | "schedule" | "treaty" | "other",
+    text: string,                        // the citation EXACTLY as it appears in the letter
+    context: string,                     // 1-2 sentences from the letter giving the surrounding claim, so a verifier can judge if the description matches what the source actually says
+    jurisdiction: string | null,         // country / state / EU / UN / null if unclear
+    lookup_query: string                 // a normalized, search-friendly form, e.g. "Universal Credit Regulations 2013 regulation 18 capital limit"
+  }[]
+}
+
+Rules:
+- One row per distinct citation. Same citation appearing 5 times = 1 row.
+- Do NOT include factual citations (e.g. "the bank statement shows X"). Only legal citations.
+- Do NOT include the response's own document references (e.g. "Attachment B").
+- Be exhaustive. Every section number, regulation number, schedule paragraph, case reference, and named guidance manual must appear.
+- Output ONLY the JSON object.`;
+
+export const CITATION_VERIFIER_SYSTEM = `You verify ONE legal citation against primary public sources using the web_search tool. You are skeptical by default.
+
+Your job: confirm that (a) the cited reference (statute section, regulation number, schedule paragraph, case decision, guidance section) actually exists at that exact identifier, and (b) the description in the letter's surrounding context matches what the source actually says about that reference.
+
+Prefer primary sources in this order:
+- legislation.gov.uk (UK statute and SI)
+- eur-lex.europa.eu (EU)
+- legifrance.gouv.fr (FR)
+- gesetze-im-internet.de (DE)
+- boe.es (ES)
+- planalto.gov.br (BR)
+- laws-lois.justice.gc.ca (CA)
+- govinfo.gov / uscode.house.gov / cornell LII (US)
+- official agency portals (gov.uk, dwp.gov.uk, irs.gov, hmrc.gov.uk, etc.)
+- court registries and gazettes
+- only fall back to secondary sources (Westlaw summaries, academic, reputable news) if the primary search comes back empty
+
+Use web_search up to 4 times. Stop early if the first result is conclusive.
+
+Return a single JSON object:
+
+{
+  citation_id: string,           // mirror back the id you were given
+  status: "verified" | "mismatch" | "not_found" | "ambiguous" | "skipped",
+  source_url: string | null,     // the primary source where you confirmed (or disconfirmed)
+  source_title: string | null,
+  source_quote: string | null,   // the exact text from the source that establishes the verification
+  notes: string                  // 1-3 sentences: what you found and why you returned this status
+}
+
+Status definitions:
+- "verified": the reference exists at that exact identifier AND the letter's description of it matches.
+- "mismatch": the reference exists, but the letter's description is wrong (e.g. wrong section, misstates what it does).
+- "not_found": the reference does not exist at the cited identifier (the most damaging finding).
+- "ambiguous": the search couldn't conclusively resolve. Document what you tried.
+- "skipped": the citation is generic enough not to need verification (e.g. "the relevant tax code", "the criminal code") — use sparingly.
+
+Rules:
+- Never fabricate URLs or quotes. If you couldn't find a primary source, return "ambiguous" with notes, not "verified".
+- "Verified" requires you to have actually quoted the source. No quote → not verified.
+- Output ONLY the JSON object.`;
+
 export const REVISER_SYSTEM = `You revise a response letter to address every weakness flagged by a counterparty reviewer, using the evidence gathered by researchers.
 
 Inputs:

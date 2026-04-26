@@ -8,6 +8,9 @@ import type {
   ResponseLetter,
   Weakness,
   EvidenceItem,
+  CitationVerificationResult,
+  CitationVerification,
+  ExtractedCitation,
 } from "@/lib/types";
 
 type HardenEvent =
@@ -83,6 +86,9 @@ export default function Home() {
     HardenEvent,
     { type: "final" }
   > | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verification, setVerification] =
+    useState<CitationVerificationResult | null>(null);
 
   async function handleFiles(files: FileList | null) {
     if (!files) return;
@@ -210,6 +216,32 @@ export default function Home() {
     }
   }
 
+  async function runVerify() {
+    if (!response) return;
+    setVerifying(true);
+    setError(null);
+    setVerification(null);
+    try {
+      const jurisdictionHint =
+        docs.find((d) => d.document.jurisdiction)?.document.jurisdiction ?? undefined;
+      const res = await fetch("/api/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          response,
+          jurisdiction_hint: jurisdictionHint,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Verification failed");
+      setVerification(json);
+    } catch (e) {
+      setError(`Citation verification failed: ${(e as Error).message}`);
+    } finally {
+      setVerifying(false);
+    }
+  }
+
   async function downloadPacket() {
     if (!response || !selectedOption) return;
     try {
@@ -221,6 +253,7 @@ export default function Home() {
           option: selectedOption,
           response,
           evidence_binder: hardened ? hardened.evidence_binder : undefined,
+          verification: verification ?? undefined,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -248,6 +281,7 @@ export default function Home() {
     setError(null);
     setHardenEvents([]);
     setHardened(null);
+    setVerification(null);
   }
 
   return (
@@ -317,8 +351,12 @@ export default function Home() {
             option={selectedOption}
             response={response}
             drafting={drafting}
+            verification={verification}
+            verifying={verifying}
+            onVerify={runVerify}
             onBack={() => {
               setResponse(null);
+              setVerification(null);
               setStage("options");
             }}
             onHarden={runHarden}
@@ -336,6 +374,7 @@ export default function Home() {
             onUseHardened={() => {
               if (hardened?.final_response) {
                 setResponse(hardened.final_response);
+                setVerification(null);
                 setStage("response");
               }
             }}
@@ -711,6 +750,9 @@ function ResponseStage({
   option,
   response,
   drafting,
+  verification,
+  verifying,
+  onVerify,
   onBack,
   onHarden,
   onDownload,
@@ -718,6 +760,9 @@ function ResponseStage({
   option: ResponseOption;
   response: ResponseLetter | null;
   drafting: boolean;
+  verification: CitationVerificationResult | null;
+  verifying: boolean;
+  onVerify: () => void;
   onBack: () => void;
   onHarden: () => void;
   onDownload: () => void;
@@ -745,6 +790,20 @@ function ResponseStage({
                 className="rounded-full border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-900 px-4 py-2 text-sm font-medium"
               >
                 Download packet
+              </button>
+              <button
+                onClick={onVerify}
+                disabled={verifying}
+                className="rounded-full bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 px-4 py-2 text-sm font-medium flex items-center gap-2"
+                title="A second-pass agent extracts every legal citation in your draft and verifies each one against primary sources via web search."
+              >
+                {verifying ? (
+                  <>
+                    <Spinner small /> Verifying citations…
+                  </>
+                ) : (
+                  <>✓ Verify citations</>
+                )}
               </button>
               <button
                 onClick={onHarden}
@@ -781,6 +840,15 @@ function ResponseStage({
               {response.response_text}
             </pre>
           </Section>
+
+          {(verification || verifying) && (
+            <Section title="Citation verification">
+              <CitationsPanel
+                verification={verification}
+                verifying={verifying}
+              />
+            </Section>
+          )}
 
           {response.next_steps.length > 0 && (
             <Section title="Deadlines and next steps">
@@ -843,6 +911,162 @@ function ResponseStage({
         </div>
       )}
     </div>
+  );
+}
+
+function CitationsPanel({
+  verification,
+  verifying,
+}: {
+  verification: CitationVerificationResult | null;
+  verifying: boolean;
+}) {
+  if (verifying && !verification) {
+    return (
+      <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/30 p-4 text-sm flex items-center gap-3">
+        <Spinner small />
+        <span className="text-zinc-700 dark:text-zinc-300">
+          Extracting citations and checking each one against primary sources via
+          web search…
+        </span>
+      </div>
+    );
+  }
+  if (!verification) return null;
+  const { summary, citations, verifications } = verification;
+
+  if (summary.total === 0) {
+    return (
+      <p className="text-sm text-zinc-500 italic">
+        No legal citations were extracted from this draft.
+      </p>
+    );
+  }
+
+  const byId = new Map<string, ExtractedCitation>(
+    citations.map((c) => [c.id, c]),
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2 text-xs">
+        <SummaryPill label="verified" count={summary.verified} tone="green" />
+        <SummaryPill label="mismatch" count={summary.mismatch} tone="red" />
+        <SummaryPill label="not found" count={summary.not_found} tone="red" />
+        <SummaryPill label="ambiguous" count={summary.ambiguous} tone="amber" />
+        <SummaryPill label="skipped" count={summary.skipped} tone="zinc" />
+        <span className="text-zinc-500 self-center ml-1">
+          out of {summary.total} extracted citation
+          {summary.total === 1 ? "" : "s"}
+        </span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {verifications.map((v) => {
+          const c = byId.get(v.citation_id);
+          return <CitationRow key={v.citation_id} citation={c} verification={v} />;
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SummaryPill({
+  label,
+  count,
+  tone,
+}: {
+  label: string;
+  count: number;
+  tone: "green" | "red" | "amber" | "zinc";
+}) {
+  if (count === 0)
+    return (
+      <span className="rounded-full px-2 py-0.5 bg-zinc-100 dark:bg-zinc-900 text-zinc-500">
+        {count} {label}
+      </span>
+    );
+  const cls = {
+    green: "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200",
+    red: "bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200",
+    amber: "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200",
+    zinc: "bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400",
+  }[tone];
+  return (
+    <span className={`rounded-full px-2 py-0.5 font-medium ${cls}`}>
+      {count} {label}
+    </span>
+  );
+}
+
+function CitationRow({
+  citation,
+  verification,
+}: {
+  citation: ExtractedCitation | undefined;
+  verification: CitationVerification;
+}) {
+  const tone = {
+    verified:
+      "border-emerald-300 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/30",
+    mismatch: "border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30",
+    not_found: "border-red-400 dark:border-red-900 bg-red-50 dark:bg-red-950/30",
+    ambiguous:
+      "border-amber-300 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30",
+    skipped: "border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50",
+  }[verification.status];
+  const badge = {
+    verified: "bg-emerald-600 text-white",
+    mismatch: "bg-red-600 text-white",
+    not_found: "bg-red-700 text-white",
+    ambiguous: "bg-amber-600 text-white",
+    skipped: "bg-zinc-500 text-white",
+  }[verification.status];
+  const icon = {
+    verified: "✓",
+    mismatch: "≠",
+    not_found: "✗",
+    ambiguous: "?",
+    skipped: "—",
+  }[verification.status];
+  return (
+    <details className={`rounded-lg border-2 ${tone} p-3 text-sm`}>
+      <summary className="cursor-pointer flex items-center gap-2 flex-wrap">
+        <span
+          className={`text-xs rounded-full px-2 py-0.5 font-mono ${badge}`}
+        >
+          {icon} {verification.status.replace(/_/g, " ")}
+        </span>
+        <span className="font-medium">{citation?.text ?? verification.citation_id}</span>
+        {citation?.type && (
+          <span className="text-xs rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 text-zinc-600 dark:text-zinc-400">
+            {citation.type}
+          </span>
+        )}
+      </summary>
+      <div className="mt-3 flex flex-col gap-2 text-xs">
+        {citation?.context && (
+          <p className="italic text-zinc-600 dark:text-zinc-400">
+            “{citation.context}”
+          </p>
+        )}
+        <p className="text-zinc-700 dark:text-zinc-300">{verification.notes}</p>
+        {verification.source_quote && (
+          <blockquote className="border-l-2 border-zinc-400 dark:border-zinc-600 pl-3 text-zinc-700 dark:text-zinc-300">
+            {verification.source_quote}
+          </blockquote>
+        )}
+        {verification.source_url && (
+          <a
+            href={verification.source_url}
+            target="_blank"
+            rel="noreferrer"
+            className="underline text-blue-700 dark:text-blue-300 break-all"
+          >
+            {verification.source_title ?? verification.source_url}
+          </a>
+        )}
+      </div>
+    </details>
   );
 }
 
