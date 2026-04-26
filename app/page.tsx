@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type {
   ExtractedDocument,
   ResponseAnalysis,
@@ -696,7 +696,7 @@ function UploadStage({
   docs: UploadedDoc[];
   uploading: string[];
   freeText: string;
-  setFreeText: (s: string) => void;
+  setFreeText: Dispatch<SetStateAction<string>>;
   onFiles: (files: FileList | null) => void;
   onAnalyze: () => void;
   onRemove: (i: number) => void;
@@ -979,10 +979,18 @@ function UploadStage({
         )}
 
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium">
-            Anything else Paperwork should know? (optional)
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="paperwork-freetext" className="text-sm font-medium">
+              Anything else Paperwork should know? (optional)
+            </label>
+            <VoiceInputButton
+              onTranscript={(text) =>
+                setFreeText((prev) => (prev ? prev + " " + text : text))
+              }
+            />
+          </div>
           <textarea
+            id="paperwork-freetext"
             value={freeText}
             onChange={(e) => setFreeText(e.target.value)}
             placeholder="e.g. I can't afford to pay this now. Or: I disagree — I was on leave that day and have proof. Or: I need this to stay legal in the UK while I move."
@@ -1120,6 +1128,322 @@ function PipelineArrow() {
         <path d="M3 8h10M9 4l4 4-4 4" />
       </svg>
     </div>
+  );
+}
+
+// --- Web Speech API typings (browsers ship these, TS does not have them
+//     in the default lib without @types/dom-speech-recognition) ---
+type SpeechRecognitionResult = {
+  isFinal: boolean;
+  0: { transcript: string };
+};
+type SpeechRecognitionEvent = {
+  resultIndex: number;
+  results: { length: number; [i: number]: SpeechRecognitionResult };
+};
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onstart: ((this: SpeechRecognitionLike, ev: Event) => unknown) | null;
+  onresult:
+    | ((this: SpeechRecognitionLike, ev: SpeechRecognitionEvent) => unknown)
+    | null;
+  onerror: ((this: SpeechRecognitionLike, ev: Event) => unknown) | null;
+  onend: ((this: SpeechRecognitionLike, ev: Event) => unknown) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+};
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+
+function getSpeechRecognition(): SpeechRecognitionCtor | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as {
+    SpeechRecognition?: SpeechRecognitionCtor;
+    webkitSpeechRecognition?: SpeechRecognitionCtor;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
+
+function VoiceInputButton({
+  onTranscript,
+  lang = "en-US",
+}: {
+  onTranscript: (text: string) => void;
+  lang?: string;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [supported, setSupported] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [interim, setInterim] = useState("");
+  const recRef = useRef<SpeechRecognitionLike | null>(null);
+
+  useEffect(() => {
+    setSupported(getSpeechRecognition() !== null);
+    setMounted(true);
+    return () => {
+      try {
+        recRef.current?.abort();
+      } catch {}
+    };
+  }, []);
+
+  function start() {
+    const Ctor = getSpeechRecognition();
+    if (!Ctor) return;
+    try {
+      const r = new Ctor();
+      r.lang = lang;
+      r.continuous = true;
+      r.interimResults = true;
+      r.onresult = (e) => {
+        let finalChunk = "";
+        let interimChunk = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const res = e.results[i];
+          if (res.isFinal) finalChunk += res[0].transcript;
+          else interimChunk += res[0].transcript;
+        }
+        if (finalChunk) {
+          onTranscript(finalChunk.trim());
+        }
+        setInterim(interimChunk);
+      };
+      r.onerror = () => {
+        // most common cause: user denied mic permission. silently stop.
+        setListening(false);
+        setInterim("");
+      };
+      r.onend = () => {
+        setListening(false);
+        setInterim("");
+      };
+      r.start();
+      recRef.current = r;
+      setListening(true);
+    } catch {
+      setListening(false);
+    }
+  }
+
+  function stop() {
+    try {
+      recRef.current?.stop();
+    } catch {}
+    setListening(false);
+  }
+
+  // Render nothing during SSR / pre-hydration to avoid a flash of "not
+  // supported" text before we can actually detect the browser API.
+  if (!mounted) return null;
+  if (!supported) {
+    return (
+      <span
+        className="text-[11px] text-zinc-400 dark:text-zinc-500"
+        title="Voice input requires Chrome, Edge, or Safari with microphone access."
+      >
+        Voice input needs Chrome / Edge / Safari
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {interim && (
+        <span className="hidden sm:inline-block text-[11px] text-zinc-500 dark:text-zinc-400 italic max-w-[18ch] truncate">
+          “{interim}”
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={listening ? stop : start}
+        aria-pressed={listening}
+        aria-label={listening ? "Stop voice input" : "Start voice input"}
+        title={
+          listening
+            ? "Stop and transcribe"
+            : "Speak your context — we'll type it for you"
+        }
+        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+          listening
+            ? "bg-red-600 text-white hover:bg-red-700"
+            : "border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300"
+        }`}
+      >
+        {listening ? (
+          <>
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-red-300 opacity-75 animate-ping" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-100" />
+            </span>
+            Recording — click to stop
+          </>
+        ) : (
+          <>
+            <MicIcon /> Speak
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
+// Map our short language codes to a BCP-47 tag the browser TTS can use.
+function ttsLangFor(code: string | undefined | null): string {
+  if (!code) return "en-US";
+  const c = code.toLowerCase().slice(0, 2);
+  const map: Record<string, string> = {
+    en: "en-US",
+    de: "de-DE",
+    fr: "fr-FR",
+    es: "es-ES",
+    pt: "pt-PT",
+    it: "it-IT",
+    nl: "nl-NL",
+    pl: "pl-PL",
+    ro: "ro-RO",
+    sv: "sv-SE",
+    da: "da-DK",
+    no: "no-NO",
+    fi: "fi-FI",
+    ru: "ru-RU",
+    el: "el-GR",
+    cs: "cs-CZ",
+    hu: "hu-HU",
+    tr: "tr-TR",
+  };
+  return map[c] ?? "en-US";
+}
+
+function ReadAloudButton({
+  text,
+  lang,
+}: {
+  text: string;
+  lang: string;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [supported, setSupported] = useState(false);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    setSupported(typeof window !== "undefined" && "speechSynthesis" in window);
+    setMounted(true);
+    return () => {
+      try {
+        window.speechSynthesis?.cancel();
+      } catch {}
+    };
+  }, []);
+
+  // If the underlying response text changes (auto-fix replaced it, harden
+  // produced a new draft), cancel any in-progress reading — what we're
+  // playing is now stale.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.speechSynthesis.cancel();
+    } catch {}
+    setPlaying(false);
+  }, [text]);
+
+  function play() {
+    if (!supported) return;
+    try {
+      window.speechSynthesis.cancel(); // wipe any leftover queue
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = ttsLangFor(lang);
+      u.rate = 1;
+      u.pitch = 1;
+      // Pick a voice that matches the language if available — otherwise the
+      // browser falls back to a default voice for the lang tag.
+      const voices = window.speechSynthesis.getVoices();
+      const match = voices.find((v) => v.lang.toLowerCase().startsWith(u.lang.slice(0, 2)));
+      if (match) u.voice = match;
+      u.onend = () => setPlaying(false);
+      u.onerror = () => setPlaying(false);
+      window.speechSynthesis.speak(u);
+      setPlaying(true);
+    } catch {
+      setPlaying(false);
+    }
+  }
+
+  function stop() {
+    try {
+      window.speechSynthesis.cancel();
+    } catch {}
+    setPlaying(false);
+  }
+
+  if (!mounted || !supported) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={playing ? stop : play}
+      aria-pressed={playing}
+      aria-label={playing ? "Stop reading" : "Read response aloud"}
+      title={
+        playing
+          ? "Stop reading"
+          : `Read the response aloud (${ttsLangFor(lang)})`
+      }
+      className={`rounded-full border transition-colors px-4 py-2 text-sm font-medium inline-flex items-center gap-2 ${
+        playing
+          ? "border-red-300 dark:border-red-900 text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/60"
+          : "border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300"
+      }`}
+    >
+      {playing ? (
+        <>
+          <StopIcon /> Stop
+        </>
+      ) : (
+        <>
+          <SpeakerIcon /> Read aloud
+        </>
+      )}
+    </button>
+  );
+}
+
+function SpeakerIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
+  );
+}
+
+function StopIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+      <rect x="6" y="6" width="12" height="12" rx="1" />
+    </svg>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="13"
+      height="13"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="9" y="2" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0" />
+      <path d="M12 18v3" />
+    </svg>
   );
 }
 
@@ -1833,6 +2157,10 @@ function ResponseStage({
         <div className="flex items-center gap-3">
           {response && (
             <>
+              <ReadAloudButton
+                text={response.response_text}
+                lang={response.language}
+              />
               <button
                 onClick={onDownload}
                 disabled={!isPdfRenderableLanguage(response.language)}
