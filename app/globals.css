@@ -56,3 +56,36 @@ body {
   opacity: 0;
   animation: hero-fade-in 0.5s ease-out forwards;
 }
+
+/* Final-state swap on the last verifier-preview row: "checking" badge
+   crossfades into "verified" once all rows have streamed in. */
+@keyframes hero-final-fade-out {
+  0%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes hero-final-fade-in {
+  0%,
+  85% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.hero-final-out {
+  animation: hero-final-fade-out 3.6s ease-out forwards;
+  animation-delay: 1.8s;
+}
+
+.hero-final-in {
+  opacity: 0;
+  animation: hero-final-fade-in 3.6s ease-out forwards;
+  animation-delay: 1.8s;
+}
