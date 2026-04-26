@@ -882,6 +882,128 @@ function UploadStage({
         </div>
       </section>
 
+      {/* Or upload your own — moved up so both "try" actions sit together,
+          right after the demos. The full upload zone lives inside this
+          section so visitors don't have to scroll past credibility content
+          to take action. */}
+      <section id="upload" className="flex flex-col gap-5 scroll-mt-24">
+        <div>
+          <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="h-px w-6 bg-zinc-300 dark:bg-zinc-700" />
+            Or upload your own letter
+          </span>
+          <h3 className="mt-3 text-3xl font-semibold tracking-tight">
+            Drop a PDF or photo. Multiple files OK.
+          </h3>
+          <p className="mt-2 text-zinc-600 dark:text-zinc-400 max-w-2xl text-sm">
+            Snap the letter on your kitchen table. Add the bank statement,
+            payslip, or ID that supports your case. Everything is processed in
+            this browser tab and discarded server-side.
+          </p>
+        </div>
+
+        <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+          <span className="font-medium text-zinc-800 dark:text-zinc-200">Before you upload:</span>{" "}
+          Your documents go directly to Anthropic for analysis and are not stored
+          on our servers — no database, no logs, no retention. Case state lives in
+          this browser tab; closing it erases everything. Redact anything you do
+          not want a model or a researcher to see. Avoid uploading documents you
+          cannot afford to share. By continuing you accept these terms and
+          confirm the documents are yours or you have permission to share them.
+        </div>
+
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            onFiles(e.dataTransfer.files);
+          }}
+          className={`rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
+            dragging
+              ? "border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-900"
+              : "border-zinc-300 dark:border-zinc-700"
+          }`}
+        >
+          <p className="text-zinc-700 dark:text-zinc-300">
+            Drag files here, or{" "}
+            <label className="underline cursor-pointer">
+              browse
+              <input
+                type="file"
+                multiple
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={(e) => onFiles(e.target.files)}
+              />
+            </label>
+            {" "}or{" "}
+            <label className="underline cursor-pointer">
+              take a photo
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => onFiles(e.target.files)}
+              />
+            </label>
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">
+            PDF, JPG, PNG. Up to 20 MB each. Snap the letter on your kitchen
+            table — Paperwork reads paper.
+          </p>
+        </div>
+
+        {(docs.length > 0 || uploading.length > 0) && (
+          <div className="flex flex-col gap-2">
+            {uploading.map((name) => (
+              <div
+                key={name}
+                className="flex items-center justify-between rounded-lg border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-sm"
+              >
+                <span className="text-zinc-600 dark:text-zinc-400">{name}</span>
+                <span className="text-xs text-zinc-500 flex items-center gap-2">
+                  <Spinner small /> reading with Opus 4.7
+                </span>
+              </div>
+            ))}
+            {docs.map((d, i) => (
+              <DocCard key={i} doc={d} onRemove={() => onRemove(i)} />
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium">
+            Anything else Paperwork should know? (optional)
+          </label>
+          <textarea
+            value={freeText}
+            onChange={(e) => setFreeText(e.target.value)}
+            placeholder="e.g. I can't afford to pay this now. Or: I disagree — I was on leave that day and have proof. Or: I need this to stay legal in the UK while I move."
+            className="min-h-[100px] w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-zinc-500">
+            {docs.length} document{docs.length === 1 ? "" : "s"} ready
+          </p>
+          <button
+            disabled={docs.length === 0 || uploading.length > 0}
+            onClick={onAnalyze}
+            className="rounded-full bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900 px-6 py-3 text-sm font-medium disabled:opacity-40"
+          >
+            Show me my options
+          </button>
+        </div>
+      </section>
+
       {/* Use cases */}
       <section className="flex flex-col gap-6">
         <div>
@@ -936,160 +1058,6 @@ function UploadStage({
         </div>
       </section>
 
-      {/* Final CTA section — strong invitation before the upload zone. */}
-      <section className="rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 dark:from-emerald-950 dark:via-zinc-950 dark:to-blue-950 p-8 sm:p-12 text-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.12),_transparent_50%)] pointer-events-none" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_rgba(59,130,246,0.10),_transparent_50%)] pointer-events-none" />
-        <div className="relative flex flex-col items-center gap-5 max-w-2xl mx-auto">
-          <span className="text-[11px] uppercase tracking-[0.18em] font-medium text-emerald-300 dark:text-emerald-400">
-            Ready when you are
-          </span>
-          <h3 className="text-3xl sm:text-5xl font-semibold tracking-tight leading-[1.05] text-white">
-            Stop signing letters{" "}
-            <span className="bg-gradient-to-r from-emerald-300 to-blue-300 bg-clip-text text-transparent">
-              you don&apos;t fully read.
-            </span>
-          </h3>
-          <p className="text-zinc-300 dark:text-zinc-300 max-w-xl">
-            Try a finished demo, or upload the letter on your kitchen table.
-            No signup. No persistence. Each draft is a draft for your review —
-            and every citation in it is verifiable against a primary source.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <button
-              onClick={() => onLoadDemo("uk-dwp")}
-              className="rounded-full bg-white text-zinc-900 hover:bg-zinc-100 transition-colors px-6 py-3 text-sm font-medium shadow-md hover:shadow-lg inline-flex items-center gap-2"
-            >
-              See the live demo →
-            </button>
-            <a
-              href="#upload"
-              className="rounded-full border border-zinc-700 dark:border-zinc-700 text-zinc-200 hover:bg-zinc-800 transition-colors px-6 py-3 text-sm font-medium inline-flex items-center gap-2"
-            >
-              Upload your letter
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* Or upload your own */}
-      <section id="upload" className="flex flex-col gap-5 pt-4 scroll-mt-24">
-        <div>
-          <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-zinc-500 dark:text-zinc-400">
-            <span className="h-px w-6 bg-zinc-300 dark:bg-zinc-700" />
-            Upload your own letter
-          </span>
-          <h3 className="mt-3 text-3xl font-semibold tracking-tight">
-            Drop a PDF or photo. Multiple files OK.
-          </h3>
-          <p className="mt-2 text-zinc-600 dark:text-zinc-400 max-w-2xl text-sm">
-            Snap the letter on your kitchen table. Add the bank statement,
-            payslip, or ID that supports your case. Everything is processed in
-            this browser tab and discarded server-side.
-          </p>
-        </div>
-      </section>
-
-      <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-        <span className="font-medium text-zinc-800 dark:text-zinc-200">Before you upload:</span>{" "}
-        Your documents go directly to Anthropic for analysis and are not stored
-        on our servers — no database, no logs, no retention. Case state lives in
-        this browser tab; closing it erases everything. Redact anything you do
-        not want a model or a researcher to see. Avoid uploading documents you
-        cannot afford to share. By continuing you accept these terms and
-        confirm the documents are yours or you have permission to share them.
-      </div>
-
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          onFiles(e.dataTransfer.files);
-        }}
-        className={`rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
-          dragging
-            ? "border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-900"
-            : "border-zinc-300 dark:border-zinc-700"
-        }`}
-      >
-        <p className="text-zinc-700 dark:text-zinc-300">
-          Drag files here, or{" "}
-          <label className="underline cursor-pointer">
-            browse
-            <input
-              type="file"
-              multiple
-              accept="image/*,application/pdf"
-              className="hidden"
-              onChange={(e) => onFiles(e.target.files)}
-            />
-          </label>
-          {" "}or{" "}
-          <label className="underline cursor-pointer">
-            take a photo
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => onFiles(e.target.files)}
-            />
-          </label>
-        </p>
-        <p className="mt-1 text-xs text-zinc-500">
-          PDF, JPG, PNG. Up to 20 MB each. Snap the letter on your kitchen
-          table — Paperwork reads paper.
-        </p>
-      </div>
-
-      {(docs.length > 0 || uploading.length > 0) && (
-        <div className="flex flex-col gap-2">
-          {uploading.map((name) => (
-            <div
-              key={name}
-              className="flex items-center justify-between rounded-lg border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-sm"
-            >
-              <span className="text-zinc-600 dark:text-zinc-400">{name}</span>
-              <span className="text-xs text-zinc-500 flex items-center gap-2">
-                <Spinner small /> reading with Opus 4.7
-              </span>
-            </div>
-          ))}
-          {docs.map((d, i) => (
-            <DocCard key={i} doc={d} onRemove={() => onRemove(i)} />
-          ))}
-        </div>
-      )}
-
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">
-          Anything else Paperwork should know? (optional)
-        </label>
-        <textarea
-          value={freeText}
-          onChange={(e) => setFreeText(e.target.value)}
-          placeholder="e.g. I can't afford to pay this now. Or: I disagree — I was on leave that day and have proof. Or: I need this to stay legal in the UK while I move."
-          className="min-h-[100px] w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-zinc-500">
-          {docs.length} document{docs.length === 1 ? "" : "s"} ready
-        </p>
-        <button
-          disabled={docs.length === 0 || uploading.length > 0}
-          onClick={onAnalyze}
-          className="rounded-full bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900 px-6 py-3 text-sm font-medium disabled:opacity-40"
-        >
-          Show me my options
-        </button>
-      </div>
     </div>
   );
 }
