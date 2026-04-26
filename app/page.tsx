@@ -876,6 +876,10 @@ function UploadStage({
             </span>
             <span className="inline-flex items-center gap-1.5">
               <CheckIcon className="text-emerald-600 dark:text-emerald-400" />
+              Voice input · read-aloud
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <CheckIcon className="text-emerald-600 dark:text-emerald-400" />
               Source on GitHub
             </span>
             <span className="inline-flex items-center gap-1.5">
@@ -885,6 +889,162 @@ function UploadStage({
           </div>
         </div>
         <VerifierPreview />
+      </section>
+
+      {/* Primary action — upload your letter. Lives at the top of the
+          page (right under the hero) so the action a real user came here
+          for is the first thing they see. */}
+      <section id="upload" className="flex flex-col gap-5 scroll-mt-24">
+        <div>
+          <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-emerald-700 dark:text-emerald-400">
+            <span className="h-px w-6 bg-emerald-300 dark:bg-emerald-700" />
+            Start here
+          </span>
+          <h3 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight">
+            Upload the letter you got.
+          </h3>
+          <p className="mt-2 text-zinc-600 dark:text-zinc-400 max-w-2xl text-sm">
+            Drop a PDF or photo. Multiple files OK — add the bank statement,
+            payslip, or ID that supports your case. Or skip it and{" "}
+            <a
+              href="#demos"
+              className="underline underline-offset-2 hover:text-zinc-900 dark:hover:text-zinc-100"
+            >
+              load a finished demo
+            </a>
+            .
+          </p>
+        </div>
+
+        <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed space-y-1.5">
+          <p>
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Documents:
+            </span>{" "}
+            Your uploads go directly to Anthropic for analysis and are not
+            stored on our servers — no database, no logs, no retention. Case
+            state lives in this browser tab; closing it erases everything.
+          </p>
+          <p>
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Voice input:
+            </span>{" "}
+            If you click <span className="font-mono">Speak</span> below, your
+            audio is transcribed by your browser&apos;s built-in speech
+            service (Google in Chrome, Microsoft in Edge, Apple in Safari) —
+            same flow as any voice search. We never see the audio; we only
+            receive the transcribed text. Read-aloud (on the response page)
+            runs entirely on your device.
+          </p>
+          <p>
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Your responsibility:
+            </span>{" "}
+            Redact anything you do not want a model or a third party to see.
+            Avoid uploading documents you cannot afford to share. By continuing
+            you accept these terms and confirm the documents are yours or you
+            have permission to share them.
+          </p>
+        </div>
+
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            onFiles(e.dataTransfer.files);
+          }}
+          className={`rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
+            dragging
+              ? "border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-900"
+              : "border-zinc-300 dark:border-zinc-700"
+          }`}
+        >
+          <p className="text-zinc-700 dark:text-zinc-300">
+            Drag files here, or{" "}
+            <label className="underline cursor-pointer">
+              browse
+              <input
+                type="file"
+                multiple
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={(e) => onFiles(e.target.files)}
+              />
+            </label>
+            {" "}or{" "}
+            <label className="underline cursor-pointer">
+              take a photo
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => onFiles(e.target.files)}
+              />
+            </label>
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">
+            PDF, JPG, PNG. Up to 20 MB each. Snap the letter on your kitchen
+            table — Paperwork reads paper.
+          </p>
+        </div>
+
+        {(docs.length > 0 || uploading.length > 0) && (
+          <div className="flex flex-col gap-2">
+            {uploading.map((name) => (
+              <div
+                key={name}
+                className="flex items-center justify-between rounded-lg border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-sm"
+              >
+                <span className="text-zinc-600 dark:text-zinc-400">{name}</span>
+                <span className="text-xs text-zinc-500 flex items-center gap-2">
+                  <Spinner small /> reading with Opus 4.7
+                </span>
+              </div>
+            ))}
+            {docs.map((d, i) => (
+              <DocCard key={i} doc={d} onRemove={() => onRemove(i)} />
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <label htmlFor="paperwork-freetext" className="text-sm font-medium">
+              Anything else Paperwork should know? (optional)
+            </label>
+            <VoiceInputButton
+              onTranscript={(text) =>
+                setFreeText((prev) => (prev ? prev + " " + text : text))
+              }
+            />
+          </div>
+          <textarea
+            id="paperwork-freetext"
+            value={freeText}
+            onChange={(e) => setFreeText(e.target.value)}
+            placeholder="e.g. I can't afford to pay this now. Or: I disagree — I was on leave that day and have proof. Or: I need this to stay legal in the UK while I move."
+            className="min-h-[100px] w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-zinc-500">
+            {docs.length} document{docs.length === 1 ? "" : "s"} ready
+          </p>
+          <button
+            disabled={docs.length === 0 || uploading.length > 0}
+            onClick={onAnalyze}
+            className="rounded-full bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900 px-6 py-3 text-sm font-medium disabled:opacity-40"
+          >
+            Show me my options
+          </button>
+        </div>
       </section>
 
       {/* Stats strip */}
@@ -1008,152 +1168,6 @@ function UploadStage({
           right after the demos. The full upload zone lives inside this
           section so visitors don't have to scroll past credibility content
           to take action. */}
-      <section id="upload" className="flex flex-col gap-5 scroll-mt-24">
-        <div>
-          <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-zinc-500 dark:text-zinc-400">
-            <span className="h-px w-6 bg-zinc-300 dark:bg-zinc-700" />
-            Or upload your own letter
-          </span>
-          <h3 className="mt-3 text-3xl font-semibold tracking-tight">
-            Drop a PDF or photo. Multiple files OK.
-          </h3>
-          <p className="mt-2 text-zinc-600 dark:text-zinc-400 max-w-2xl text-sm">
-            Snap the letter on your kitchen table. Add the bank statement,
-            payslip, or ID that supports your case. Everything is processed in
-            this browser tab and discarded server-side.
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed space-y-1.5">
-          <p>
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
-              Documents:
-            </span>{" "}
-            Your uploads go directly to Anthropic for analysis and are not
-            stored on our servers — no database, no logs, no retention. Case
-            state lives in this browser tab; closing it erases everything.
-          </p>
-          <p>
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
-              Voice input:
-            </span>{" "}
-            If you click <span className="font-mono">Speak</span>, your audio
-            is transcribed by your browser&apos;s built-in speech service
-            (Google in Chrome / Edge, Apple in Safari) — same flow as any
-            voice search. We never see the audio; we only receive the
-            transcribed text. Read-aloud runs entirely on your device.
-          </p>
-          <p>
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
-              Your responsibility:
-            </span>{" "}
-            Redact anything you do not want a model or a third party to see.
-            Avoid uploading documents you cannot afford to share. By continuing
-            you accept these terms and confirm the documents are yours or you
-            have permission to share them.
-          </p>
-        </div>
-
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragging(false);
-            onFiles(e.dataTransfer.files);
-          }}
-          className={`rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
-            dragging
-              ? "border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-900"
-              : "border-zinc-300 dark:border-zinc-700"
-          }`}
-        >
-          <p className="text-zinc-700 dark:text-zinc-300">
-            Drag files here, or{" "}
-            <label className="underline cursor-pointer">
-              browse
-              <input
-                type="file"
-                multiple
-                accept="image/*,application/pdf"
-                className="hidden"
-                onChange={(e) => onFiles(e.target.files)}
-              />
-            </label>
-            {" "}or{" "}
-            <label className="underline cursor-pointer">
-              take a photo
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => onFiles(e.target.files)}
-              />
-            </label>
-          </p>
-          <p className="mt-1 text-xs text-zinc-500">
-            PDF, JPG, PNG. Up to 20 MB each. Snap the letter on your kitchen
-            table — Paperwork reads paper.
-          </p>
-        </div>
-
-        {(docs.length > 0 || uploading.length > 0) && (
-          <div className="flex flex-col gap-2">
-            {uploading.map((name) => (
-              <div
-                key={name}
-                className="flex items-center justify-between rounded-lg border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-sm"
-              >
-                <span className="text-zinc-600 dark:text-zinc-400">{name}</span>
-                <span className="text-xs text-zinc-500 flex items-center gap-2">
-                  <Spinner small /> reading with Opus 4.7
-                </span>
-              </div>
-            ))}
-            {docs.map((d, i) => (
-              <DocCard key={i} doc={d} onRemove={() => onRemove(i)} />
-            ))}
-          </div>
-        )}
-
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <label htmlFor="paperwork-freetext" className="text-sm font-medium">
-              Anything else Paperwork should know? (optional)
-            </label>
-            <VoiceInputButton
-              onTranscript={(text) =>
-                setFreeText((prev) => (prev ? prev + " " + text : text))
-              }
-            />
-          </div>
-          <textarea
-            id="paperwork-freetext"
-            value={freeText}
-            onChange={(e) => setFreeText(e.target.value)}
-            placeholder="e.g. I can't afford to pay this now. Or: I disagree — I was on leave that day and have proof. Or: I need this to stay legal in the UK while I move."
-            className="min-h-[100px] w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-zinc-500">
-            {docs.length} document{docs.length === 1 ? "" : "s"} ready
-          </p>
-          <button
-            disabled={docs.length === 0 || uploading.length > 0}
-            onClick={onAnalyze}
-            className="rounded-full bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900 px-6 py-3 text-sm font-medium disabled:opacity-40"
-          >
-            Show me my options
-          </button>
-        </div>
-      </section>
-
       {/* Use cases */}
       <section className="flex flex-col gap-6">
         <div>
