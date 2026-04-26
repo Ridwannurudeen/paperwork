@@ -69,6 +69,21 @@ type UploadedDoc = {
 
 type Stage = "upload" | "analyze" | "options" | "response" | "harden";
 
+// Noto Sans (regular) covers Latin Extended + Cyrillic + Greek. RTL and CJK are
+// roadmap. Returns false for languages the embedded PDF font cannot render.
+function isPdfRenderableLanguage(lang: string | null | undefined): boolean {
+  if (!lang) return true;
+  const code = lang.toLowerCase().slice(0, 2);
+  const unsupported = new Set([
+    "ar", "fa", "ur", "he", "yi", "ku",   // RTL: Arabic, Persian, Urdu, Hebrew, Yiddish, Kurdish
+    "zh", "ja", "ko",                       // CJK
+    "th", "lo", "my", "km",                 // SEA: Thai, Lao, Burmese, Khmer
+    "hi", "bn", "ta", "te", "ml", "kn", "gu", "pa", // Indic
+    "am", "ti",                             // Ethiopic
+  ]);
+  return !unsupported.has(code);
+}
+
 export default function Home() {
   const [docs, setDocs] = useState<UploadedDoc[]>([]);
   const [freeText, setFreeText] = useState("");
@@ -216,6 +231,31 @@ export default function Home() {
     }
   }
 
+  async function loadDemo(slug: "uk-dwp" | "uk-dwp-corrupted" | "buergergeld") {
+    setError(null);
+    try {
+      const res = await fetch(`/demo/${slug}.json`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const demo = await res.json();
+      setDocs(
+        demo.documents.map((d: ExtractedDocument, i: number) => ({
+          filename: `demo-${slug}-${i + 1}.pdf`,
+          document: d,
+        })),
+      );
+      setFreeText(demo.free_text_context ?? "");
+      setAnalysis(demo.analysis);
+      setSelectedOption(demo.option);
+      setResponse(demo.response);
+      setVerification(demo.verification ?? null);
+      setHardenEvents([]);
+      setHardened(null);
+      setStage("response");
+    } catch (e) {
+      setError(`Could not load demo: ${(e as Error).message}`);
+    }
+  }
+
   async function runVerify() {
     if (!response) return;
     setVerifying(true);
@@ -324,6 +364,7 @@ export default function Home() {
             onFiles={handleFiles}
             onAnalyze={runAnalysis}
             onRemove={(i) => setDocs((d) => d.filter((_, idx) => idx !== i))}
+            onLoadDemo={loadDemo}
           />
         )}
 
@@ -400,6 +441,7 @@ function UploadStage({
   onFiles,
   onAnalyze,
   onRemove,
+  onLoadDemo,
 }: {
   docs: UploadedDoc[];
   uploading: string[];
@@ -408,10 +450,49 @@ function UploadStage({
   onFiles: (files: FileList | null) => void;
   onAnalyze: () => void;
   onRemove: (i: number) => void;
+  onLoadDemo: (slug: "uk-dwp" | "uk-dwp-corrupted" | "buergergeld") => void;
 }) {
   const [dragging, setDragging] = useState(false);
   return (
     <div className="flex flex-col gap-8">
+      <div className="rounded-xl border-2 border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/30 p-4">
+        <div className="flex flex-col gap-3">
+          <div>
+            <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
+              Just looking? Skip the upload — load a finished case.
+            </p>
+            <p className="text-xs text-emerald-800/80 dark:text-emerald-200/80 mt-0.5">
+              Each demo loads instantly with the response letter and citation
+              audit table already populated. Click any verified citation to land
+              on the primary source.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => onLoadDemo("uk-dwp")}
+              className="rounded-full bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 text-xs font-medium whitespace-nowrap"
+              title="UK Universal Credit overpayment — 5/5 citations verified against legislation.gov.uk."
+            >
+              🇬🇧 UK · 5/5 verified
+            </button>
+            <button
+              onClick={() => onLoadDemo("buergergeld")}
+              className="rounded-full bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 text-xs font-medium whitespace-nowrap"
+              title="German Bürgergeld Aufhebungsbescheid — letter and citations in German, verified against gesetze-im-internet.de."
+            >
+              🇩🇪 DE · German welfare appeal
+            </button>
+            <button
+              onClick={() => onLoadDemo("uk-dwp-corrupted")}
+              className="rounded-full border-2 border-red-400 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 px-4 py-2 text-xs font-medium whitespace-nowrap"
+              title="Same UK case with one citation deliberately mangled — watch the verifier catch the fake."
+            >
+              ✗ Corrupted draft (verifier catches it)
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div>
         <h2 className="text-3xl font-semibold tracking-tight">
           Drop the letter you got.
@@ -787,9 +868,17 @@ function ResponseStage({
             <>
               <button
                 onClick={onDownload}
-                className="rounded-full border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-900 px-4 py-2 text-sm font-medium"
+                disabled={!isPdfRenderableLanguage(response.language)}
+                title={
+                  isPdfRenderableLanguage(response.language)
+                    ? undefined
+                    : `Packet PDF currently embeds Noto Sans (Latin/Cyrillic/Greek). The response is in ${response.language} — copy the letter from the page above instead. RTL and CJK fonts are roadmap.`
+                }
+                className="rounded-full border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 text-sm font-medium"
               >
-                Download packet
+                {isPdfRenderableLanguage(response.language)
+                  ? "Download packet"
+                  : "Download packet (script unsupported)"}
               </button>
               <button
                 onClick={onVerify}

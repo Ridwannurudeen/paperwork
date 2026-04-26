@@ -39,10 +39,20 @@ export function rateLimit(
   return { ok: true, remaining: limit - existing.count, reset: existing.reset };
 }
 
+function humanizeRetry(seconds: number): string {
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? "" : "s"}`;
+  const m = Math.ceil(seconds / 60);
+  if (m < 60) return `${m} minute${m === 1 ? "" : "s"}`;
+  const h = Math.ceil(m / 60);
+  return `${h} hour${h === 1 ? "" : "s"}`;
+}
+
 export function rateLimitResponse(retryAfter: number): Response {
   return Response.json(
     {
-      error: `Rate limit exceeded. Try again in ${retryAfter}s. This is a public demo with hard caps to prevent cost abuse — for a higher quota, run it locally.`,
+      error: `Demo rate limit reached. Try again in ${humanizeRetry(retryAfter)}. Each IP gets a small hourly quota so this stays free — clone the repo and run it locally for unlimited use: github.com/Ridwannurudeen/paperwork`,
+      rate_limited: true,
+      retry_after_seconds: retryAfter,
     },
     {
       status: 429,
