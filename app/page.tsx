@@ -827,6 +827,41 @@ function UploadStage({
   const [dragging, setDragging] = useState(false);
   return (
     <div className="flex flex-col gap-16 sm:gap-24">
+      {/* Plain-English explainer — first thing a cold visitor sees, written
+          like a person not a marketing deck. Lives above the hero. */}
+      <section className="rounded-2xl border-2 border-zinc-900/10 dark:border-zinc-100/10 bg-gradient-to-br from-zinc-50 via-white to-zinc-50 dark:from-zinc-900/60 dark:via-zinc-950 dark:to-zinc-900/60 px-6 sm:px-8 py-7 sm:py-9 mt-2 sm:mt-4">
+        <p className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight leading-[1.15] text-zinc-900 dark:text-zinc-100 max-w-4xl">
+          Got a letter from the tax office, immigration, the benefits office,
+          or the courts — and you don&apos;t fully understand it?
+        </p>
+        <p className="mt-4 text-base sm:text-lg leading-relaxed text-zinc-700 dark:text-zinc-300 max-w-3xl">
+          <strong className="text-zinc-900 dark:text-zinc-100">
+            Upload it here. We read it for you, lay out every way you can
+            respond, and write the reply in your own language.
+          </strong>{" "}
+          Every law it mentions is double-checked against the actual statute
+          before you see it — so you know what&apos;s in your reply is real.
+          Free. Browser-only. No signup. No data stored.
+        </p>
+        <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+          <span className="inline-flex items-center gap-1.5 font-medium text-zinc-700 dark:text-zinc-300">
+            <CheckIcon className="text-emerald-600 dark:text-emerald-400" />
+            Built for
+          </span>
+          <span>tax notices</span>
+          <span className="text-zinc-300 dark:text-zinc-700">·</span>
+          <span>benefit appeals</span>
+          <span className="text-zinc-300 dark:text-zinc-700">·</span>
+          <span>visa refusals</span>
+          <span className="text-zinc-300 dark:text-zinc-700">·</span>
+          <span>court summons</span>
+          <span className="text-zinc-300 dark:text-zinc-700">·</span>
+          <span>labor disputes</span>
+          <span className="text-zinc-300 dark:text-zinc-700">·</span>
+          <span>utility fines</span>
+        </div>
+      </section>
+
       {/* Hero — 2 column */}
       <section className="grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-12 items-center pt-4 sm:pt-8">
         <div className="flex flex-col gap-6">
@@ -842,12 +877,13 @@ function UploadStage({
             </span>
           </h2>
           <p className="text-zinc-600 dark:text-zinc-400 max-w-xl text-[15px] sm:text-base leading-relaxed">
-            Upload an adverse government letter — tax, benefits, visa, court,
-            labor, utility. Paperwork reads it, ranks every legal path you can
-            take, drafts the response in your letter's language, and
-            independently re-checks every statute it cited against
-            legislation.gov.uk and other primary sources before it reaches
-            your packet.
+            Drop the letter on your kitchen table — PDF, phone photo,
+            anything. We read it, rank every way you can respond, and draft
+            the reply in your language. A second AI then checks every law it
+            cited against the real statute on{" "}
+            <span className="font-mono text-[13px]">legislation.gov.uk</span>{" "}
+            and other primary sources before you see it. No lawyer. No
+            signup.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <button
