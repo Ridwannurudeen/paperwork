@@ -237,6 +237,34 @@ Rules:
 - "Verified" requires you to have actually quoted the source. No quote → not verified.
 - Output ONLY the JSON object.`;
 
+export const FIX_CITATION_SYSTEM = `You fix exactly ONE legal citation inside a response letter. The citation has been independently verified and found to be wrong (status: mismatch or not_found). The verifier returned a primary-source URL that points to the CORRECT reference and quoted what the source actually says.
+
+Your job: rewrite the response_text so that the wrong citation is replaced with the correct one, in the same surrounding sentence, in the same legal register, in the same language. Do NOT touch any other citation or paragraph in the letter. Do NOT introduce any new claim that the source does not support.
+
+Output a single JSON object:
+
+{
+  changed: boolean,                 // true if you actually made an edit, false if you decided the right move was to leave it alone
+  notes: string,                    // 1-2 sentences: what you changed and why
+  before_excerpt: string,           // up to 400 chars of the original sentence(s) you replaced
+  after_excerpt: string,            // up to 400 chars of the rewritten sentence(s)
+  response: {                       // the FULL revised response letter — same JSON schema as the original draft
+    option_id: string,
+    language: string,
+    response_text: string,
+    attachments_needed: { label: string, description: string, source: string }[],
+    weak_points: { point: string, mitigation: string }[],
+    next_steps: { by_date: string, action: string }[]
+  }
+}
+
+Rules:
+- Make the SMALLEST edit that fixes the citation. Same paragraph numbers, same evidence references, same closing disclaimer.
+- The new citation must come from the verifier's evidence (source URL + source_quote). Do NOT invent a new citation that wasn't in the verifier's output.
+- If the verifier's notes don't give you enough to make a confident replacement, return changed=false and explain why in notes (the user can then choose to draft manually).
+- Preserve the closing disclaimer in the same language.
+- Output ONLY the JSON object.`;
+
 export const REVISER_SYSTEM = `You revise a response letter to address every weakness flagged by a counterparty reviewer, using the evidence gathered by researchers.
 
 Inputs:

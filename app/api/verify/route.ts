@@ -29,6 +29,13 @@ const ExtractorOutputSchema = z.object({
 
 const CONCURRENCY = 4;
 
+function sseLine(event: unknown): Uint8Array {
+  return new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`);
+}
+function sseComment(text: string): Uint8Array {
+  return new TextEncoder().encode(`: ${text}\n\n`);
+}
+
 async function extractCitations(
   responseText: string,
   jurisdictionHint: string | undefined,
@@ -79,34 +86,6 @@ Use the web_search tool to confirm this against a primary source. Return the JSO
   return { ...validated, citation_id: citation.id };
 }
 
-async function verifyAll(
-  citations: ExtractedCitation[],
-): Promise<CitationVerification[]> {
-  const out: CitationVerification[] = [];
-  for (let i = 0; i < citations.length; i += CONCURRENCY) {
-    const batch = citations.slice(i, i + CONCURRENCY);
-    const results = await Promise.all(
-      batch.map(async (c) => {
-        try {
-          return await verifyCitation(c);
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          return {
-            citation_id: c.id,
-            status: "ambiguous" as const,
-            source_url: null,
-            source_title: null,
-            source_quote: null,
-            notes: `Verification call failed: ${msg}`,
-          };
-        }
-      }),
-    );
-    out.push(...results);
-  }
-  return out;
-}
-
 export async function POST(request: NextRequest) {
   const rl = rateLimit(request, "verify", 5, 60 * 60 * 1000);
   if (!rl.ok) return rateLimitResponse(rl.retryAfter);
@@ -121,47 +100,111 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  try {
-    const citations = await extractCitations(
-      body.response.response_text,
-      body.jurisdiction_hint,
-    );
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: unknown) => controller.enqueue(sseLine(event));
+      const heartbeat = setInterval(
+        () => controller.enqueue(sseComment("alive")),
+        10000,
+      );
 
-    if (citations.length === 0) {
-      const empty: CitationVerificationResult = {
-        citations: [],
-        verifications: [],
-        summary: {
-          total: 0,
-          verified: 0,
-          mismatch: 0,
-          not_found: 0,
-          ambiguous: 0,
-          skipped: 0,
-        },
-      };
-      return Response.json(empty);
-    }
+      try {
+        send({ type: "started" });
+        send({ type: "extracting" });
 
-    const verifications = await verifyAll(citations);
+        let citations: ExtractedCitation[];
+        try {
+          citations = await extractCitations(
+            body.response.response_text,
+            body.jurisdiction_hint,
+          );
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          send({ type: "error", message: `Extractor failed: ${msg}` });
+          return;
+        }
 
-    const summary = {
-      total: verifications.length,
-      verified: verifications.filter((v) => v.status === "verified").length,
-      mismatch: verifications.filter((v) => v.status === "mismatch").length,
-      not_found: verifications.filter((v) => v.status === "not_found").length,
-      ambiguous: verifications.filter((v) => v.status === "ambiguous").length,
-      skipped: verifications.filter((v) => v.status === "skipped").length,
-    };
+        send({ type: "extracted", citations });
 
-    const result: CitationVerificationResult = {
-      citations,
-      verifications,
-      summary,
-    };
-    return Response.json(result);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return Response.json({ error: msg }, { status: 500 });
-  }
+        if (citations.length === 0) {
+          const empty: CitationVerificationResult = {
+            citations: [],
+            verifications: [],
+            summary: {
+              total: 0,
+              verified: 0,
+              mismatch: 0,
+              not_found: 0,
+              ambiguous: 0,
+              skipped: 0,
+            },
+          };
+          send({ type: "final", result: empty });
+          return;
+        }
+
+        const verifications: CitationVerification[] = [];
+
+        for (let i = 0; i < citations.length; i += CONCURRENCY) {
+          const batch = citations.slice(i, i + CONCURRENCY);
+          for (const c of batch) {
+            send({ type: "verifier_working", citation_id: c.id });
+          }
+          const results = await Promise.all(
+            batch.map(async (c) => {
+              try {
+                const v = await verifyCitation(c);
+                send({ type: "verifier_done", verification: v });
+                return v;
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : String(e);
+                const fallback: CitationVerification = {
+                  citation_id: c.id,
+                  status: "ambiguous",
+                  source_url: null,
+                  source_title: null,
+                  source_quote: null,
+                  notes: `Verification call failed: ${msg}`,
+                };
+                send({ type: "verifier_done", verification: fallback });
+                return fallback;
+              }
+            }),
+          );
+          verifications.push(...results);
+        }
+
+        const summary = {
+          total: verifications.length,
+          verified: verifications.filter((v) => v.status === "verified").length,
+          mismatch: verifications.filter((v) => v.status === "mismatch").length,
+          not_found: verifications.filter((v) => v.status === "not_found").length,
+          ambiguous: verifications.filter((v) => v.status === "ambiguous").length,
+          skipped: verifications.filter((v) => v.status === "skipped").length,
+        };
+
+        const result: CitationVerificationResult = {
+          citations,
+          verifications,
+          summary,
+        };
+        send({ type: "final", result });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        send({ type: "error", message: msg });
+      } finally {
+        clearInterval(heartbeat);
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }

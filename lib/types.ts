@@ -188,3 +188,12 @@ export const CitationVerificationResultSchema = z.object({
 export type CitationVerificationResult = z.infer<
   typeof CitationVerificationResultSchema
 >;
+
+export const FixCitationResultSchema = z.object({
+  changed: z.boolean(),
+  notes: z.string(),
+  before_excerpt: z.string(),
+  after_excerpt: z.string(),
+  response: ResponseLetterSchema,
+});
+export type FixCitationResult = z.infer<typeof FixCitationResultSchema>;

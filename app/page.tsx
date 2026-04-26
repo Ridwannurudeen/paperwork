@@ -14,6 +14,15 @@ import type {
   HardenedResult,
 } from "@/lib/types";
 
+type VerifyEvent =
+  | { type: "started" }
+  | { type: "extracting" }
+  | { type: "extracted"; citations: ExtractedCitation[] }
+  | { type: "verifier_working"; citation_id: string }
+  | { type: "verifier_done"; verification: CitationVerification }
+  | { type: "final"; result: CitationVerificationResult }
+  | { type: "error"; message: string };
+
 type HardenEvent =
   | { type: "started"; max_iterations: number }
   | { type: "iteration_started"; iteration: number }
@@ -105,6 +114,12 @@ export default function Home() {
   const [verifying, setVerifying] = useState(false);
   const [verification, setVerification] =
     useState<CitationVerificationResult | null>(null);
+  const [fixing, setFixing] = useState<string | null>(null);
+  const [fixSummary, setFixSummary] = useState<{
+    before: string;
+    after: string;
+    notes: string;
+  } | null>(null);
   const [demoHarden, setDemoHarden] = useState<HardenedResult | null>(null);
 
   async function handleFiles(files: FileList | null) {
@@ -317,6 +332,8 @@ export default function Home() {
       setDemoHarden(demo.hardened ?? null);
       setHardenEvents([]);
       setHardened(null);
+      setFixSummary(null);
+      setFixing(null);
       setStage("response");
     } catch (e) {
       setError(`Could not load demo: ${(e as Error).message}`);
@@ -339,14 +356,132 @@ export default function Home() {
           jurisdiction_hint: jurisdictionHint,
         }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Verification failed");
-      setVerification(json);
+      if (!res.ok) {
+        const text = await res.text();
+        try {
+          const j = JSON.parse(text);
+          throw new Error(j.error ?? `HTTP ${res.status}`);
+        } catch {
+          throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+        }
+      }
+      if (!res.body) throw new Error("no response body");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      // Build state incrementally as events stream in.
+      let progressive: CitationVerificationResult = {
+        citations: [],
+        verifications: [],
+        summary: {
+          total: 0,
+          verified: 0,
+          mismatch: 0,
+          not_found: 0,
+          ambiguous: 0,
+          skipped: 0,
+        },
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf("\n\n")) !== -1) {
+          const frame = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          const line = frame.split("\n").find((l) => l.startsWith("data: "));
+          if (!line) continue;
+          let evt: VerifyEvent;
+          try {
+            evt = JSON.parse(line.slice(6)) as VerifyEvent;
+          } catch {
+            continue;
+          }
+          if (evt.type === "extracted") {
+            progressive = {
+              ...progressive,
+              citations: evt.citations,
+            };
+            setVerification({ ...progressive });
+          } else if (evt.type === "verifier_done") {
+            // Append the new verification, recompute summary on the fly.
+            const verifications = [...progressive.verifications, evt.verification];
+            const summary = {
+              total: progressive.citations.length,
+              verified: verifications.filter((v) => v.status === "verified").length,
+              mismatch: verifications.filter((v) => v.status === "mismatch").length,
+              not_found: verifications.filter((v) => v.status === "not_found").length,
+              ambiguous: verifications.filter((v) => v.status === "ambiguous").length,
+              skipped: verifications.filter((v) => v.status === "skipped").length,
+            };
+            progressive = { ...progressive, verifications, summary };
+            setVerification({ ...progressive });
+          } else if (evt.type === "final") {
+            progressive = evt.result;
+            setVerification(evt.result);
+          } else if (evt.type === "error") {
+            throw new Error(evt.message);
+          }
+        }
+      }
     } catch (e) {
       setError(`Citation verification failed: ${(e as Error).message}`);
     } finally {
       setVerifying(false);
     }
+  }
+
+  async function runFixCitation(verification: CitationVerification) {
+    if (!response || !verification) return;
+    if (
+      verification.status !== "mismatch" &&
+      verification.status !== "not_found"
+    )
+      return;
+    const cit = verification && verificationCitationById(verification.citation_id);
+    if (!cit) return;
+    setFixing(verification.citation_id);
+    setError(null);
+    try {
+      const res = await fetch("/api/fix-citation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          response,
+          citation: cit,
+          verification,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Auto-fix failed");
+      if (json.changed) {
+        // Replace the response with the fixed version. Clear verification
+        // so the user can re-verify the corrected draft. Drop demo harden
+        // because the underlying letter has changed.
+        setResponse(json.response);
+        setVerification(null);
+        setDemoHarden(null);
+        setFixSummary({
+          before: json.before_excerpt,
+          after: json.after_excerpt,
+          notes: json.notes,
+        });
+      } else {
+        setError(`Auto-fix declined: ${json.notes}`);
+      }
+    } catch (e) {
+      setError(`Auto-fix failed: ${(e as Error).message}`);
+    } finally {
+      setFixing(null);
+    }
+  }
+
+  function verificationCitationById(id: string): ExtractedCitation | null {
+    return verification?.citations.find((c) => c.id === id) ?? null;
   }
 
   async function downloadPacket() {
@@ -390,6 +525,8 @@ export default function Home() {
     setHardened(null);
     setVerification(null);
     setDemoHarden(null);
+    setFixSummary(null);
+    setFixing(null);
   }
 
   return (
@@ -483,10 +620,15 @@ export default function Home() {
             drafting={drafting}
             verification={verification}
             verifying={verifying}
+            fixing={fixing}
+            fixSummary={fixSummary}
+            onClearFixSummary={() => setFixSummary(null)}
+            onFix={runFixCitation}
             onVerify={runVerify}
             onBack={() => {
               setResponse(null);
               setVerification(null);
+              setFixSummary(null);
               setStage("options");
             }}
             onHarden={runHarden}
@@ -1039,6 +1181,10 @@ function ResponseStage({
   drafting,
   verification,
   verifying,
+  fixing,
+  fixSummary,
+  onClearFixSummary,
+  onFix,
   onVerify,
   onBack,
   onHarden,
@@ -1049,6 +1195,10 @@ function ResponseStage({
   drafting: boolean;
   verification: CitationVerificationResult | null;
   verifying: boolean;
+  fixing: string | null;
+  fixSummary: { before: string; after: string; notes: string } | null;
+  onClearFixSummary: () => void;
+  onFix: (verification: CitationVerification) => void;
   onVerify: () => void;
   onBack: () => void;
   onHarden: () => void;
@@ -1142,11 +1292,17 @@ function ResponseStage({
             </pre>
           </Section>
 
+          {fixSummary && (
+            <FixSummaryBanner summary={fixSummary} onDismiss={onClearFixSummary} />
+          )}
+
           {(verification || verifying) && (
             <Section title="Citation verification">
               <CitationsPanel
                 verification={verification}
                 verifying={verifying}
+                fixing={fixing}
+                onFix={onFix}
               />
             </Section>
           )}
@@ -1218,17 +1374,21 @@ function ResponseStage({
 function CitationsPanel({
   verification,
   verifying,
+  fixing,
+  onFix,
 }: {
   verification: CitationVerificationResult | null;
   verifying: boolean;
+  fixing: string | null;
+  onFix: (verification: CitationVerification) => void;
 }) {
-  if (verifying && !verification) {
+  // No state yet — extractor still running.
+  if (verifying && (!verification || verification.citations.length === 0)) {
     return (
       <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/30 p-4 text-sm flex items-center gap-3">
         <Spinner small />
         <span className="text-zinc-700 dark:text-zinc-300">
-          Extracting citations and checking each one against primary sources via
-          web search…
+          Extracting citations from the draft…
         </span>
       </div>
     );
@@ -1236,7 +1396,7 @@ function CitationsPanel({
   if (!verification) return null;
   const { summary, citations, verifications } = verification;
 
-  if (summary.total === 0) {
+  if (citations.length === 0 && !verifying) {
     return (
       <p className="text-sm text-zinc-500 italic">
         No legal citations were extracted from this draft.
@@ -1244,28 +1404,90 @@ function CitationsPanel({
     );
   }
 
-  const byId = new Map<string, ExtractedCitation>(
-    citations.map((c) => [c.id, c]),
+  const verifMap = new Map<string, CitationVerification>(
+    verifications.map((v) => [v.citation_id, v]),
   );
+
+  const total = citations.length;
+  const completed = verifications.length;
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
         <SummaryPill label="verified" count={summary.verified} tone="green" />
         <SummaryPill label="mismatch" count={summary.mismatch} tone="red" />
         <SummaryPill label="not found" count={summary.not_found} tone="red" />
         <SummaryPill label="ambiguous" count={summary.ambiguous} tone="amber" />
         <SummaryPill label="skipped" count={summary.skipped} tone="zinc" />
         <span className="text-zinc-500 self-center ml-1">
-          out of {summary.total} extracted citation
-          {summary.total === 1 ? "" : "s"}
+          {verifying
+            ? `${completed} of ${total} checked${completed < total ? "…" : ""}`
+            : `out of ${total} extracted citation${total === 1 ? "" : "s"}`}
         </span>
       </div>
       <div className="flex flex-col gap-2">
-        {verifications.map((v) => {
-          const c = byId.get(v.citation_id);
-          return <CitationRow key={v.citation_id} citation={c} verification={v} />;
+        {citations.map((c) => {
+          const v = verifMap.get(c.id);
+          return (
+            <CitationRow
+              key={c.id}
+              citation={c}
+              verification={v}
+              fixing={fixing === c.id}
+              onFix={onFix}
+            />
+          );
         })}
+      </div>
+    </div>
+  );
+}
+
+function FixSummaryBanner({
+  summary,
+  onDismiss,
+}: {
+  summary: { before: string; after: string; notes: string };
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="rounded-lg border-2 border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/30 p-4 text-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1">
+          <p className="font-semibold text-emerald-900 dark:text-emerald-200">
+            Auto-fix applied
+          </p>
+          <p className="text-emerald-800 dark:text-emerald-300 text-xs mt-1">
+            {summary.notes}
+          </p>
+          <div className="mt-3 grid sm:grid-cols-2 gap-3 text-xs">
+            <div>
+              <p className="font-medium text-red-700 dark:text-red-300 mb-1">
+                Before
+              </p>
+              <p className="text-zinc-700 dark:text-zinc-300 italic line-through decoration-red-400/70">
+                {summary.before}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-emerald-700 dark:text-emerald-300 mb-1">
+                After
+              </p>
+              <p className="text-zinc-700 dark:text-zinc-300">
+                {summary.after}
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-zinc-500 mt-3">
+            Click <strong>Re-verify live</strong> to confirm the fix lands clean.
+          </p>
+        </div>
+        <button
+          onClick={onDismiss}
+          className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 shrink-0"
+        >
+          Dismiss
+        </button>
       </div>
     </div>
   );
@@ -1302,10 +1524,35 @@ function SummaryPill({
 function CitationRow({
   citation,
   verification,
+  fixing,
+  onFix,
 }: {
-  citation: ExtractedCitation | undefined;
-  verification: CitationVerification;
+  citation: ExtractedCitation;
+  verification: CitationVerification | undefined;
+  fixing: boolean;
+  onFix: (verification: CitationVerification) => void;
 }) {
+  // Pending — extractor returned this citation but verifier hasn't completed yet.
+  if (!verification) {
+    return (
+      <div className="rounded-lg border-2 border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 p-3 text-sm flex items-center gap-2 flex-wrap">
+        <span className="text-xs rounded-full px-2 py-0.5 font-mono bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 inline-flex items-center gap-1.5">
+          <Spinner small />
+          checking
+        </span>
+        <span className="font-medium">{citation.text}</span>
+        {citation.type && (
+          <span className="text-xs rounded-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 text-zinc-600 dark:text-zinc-400">
+            {citation.type}
+          </span>
+        )}
+        <span className="text-xs text-zinc-500 ml-auto truncate max-w-[40%]">
+          {citation.lookup_query}
+        </span>
+      </div>
+    );
+  }
+
   const tone = {
     verified:
       "border-emerald-300 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/30",
@@ -1329,23 +1576,29 @@ function CitationRow({
     ambiguous: "?",
     skipped: "—",
   }[verification.status];
+  const fixable =
+    verification.status === "mismatch" || verification.status === "not_found";
+
   return (
-    <details className={`rounded-lg border-2 ${tone} p-3 text-sm`}>
+    <details
+      className={`rounded-lg border-2 ${tone} p-3 text-sm`}
+      open={fixable}
+    >
       <summary className="cursor-pointer flex items-center gap-2 flex-wrap">
         <span
           className={`text-xs rounded-full px-2 py-0.5 font-mono ${badge}`}
         >
           {icon} {verification.status.replace(/_/g, " ")}
         </span>
-        <span className="font-medium">{citation?.text ?? verification.citation_id}</span>
-        {citation?.type && (
+        <span className="font-medium">{citation.text}</span>
+        {citation.type && (
           <span className="text-xs rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 text-zinc-600 dark:text-zinc-400">
             {citation.type}
           </span>
         )}
       </summary>
       <div className="mt-3 flex flex-col gap-2 text-xs">
-        {citation?.context && (
+        {citation.context && (
           <p className="italic text-zinc-600 dark:text-zinc-400">
             “{citation.context}”
           </p>
@@ -1365,6 +1618,27 @@ function CitationRow({
           >
             {verification.source_title ?? verification.source_url}
           </a>
+        )}
+        {fixable && (
+          <div className="mt-1">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                onFix(verification);
+              }}
+              disabled={fixing}
+              className="rounded-full bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 px-3 py-1.5 text-xs font-medium inline-flex items-center gap-2"
+              title="Rewrite the response so this citation uses the correct primary source the verifier just found."
+            >
+              {fixing ? (
+                <>
+                  <Spinner small /> Fixing the letter…
+                </>
+              ) : (
+                <>↻ Auto-fix this citation</>
+              )}
+            </button>
+          </div>
         )}
       </div>
     </details>
