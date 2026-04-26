@@ -11,6 +11,7 @@ import type {
   CitationVerificationResult,
   CitationVerification,
   ExtractedCitation,
+  HardenedResult,
 } from "@/lib/types";
 
 type HardenEvent =
@@ -104,6 +105,7 @@ export default function Home() {
   const [verifying, setVerifying] = useState(false);
   const [verification, setVerification] =
     useState<CitationVerificationResult | null>(null);
+  const [demoHarden, setDemoHarden] = useState<HardenedResult | null>(null);
 
   async function handleFiles(files: FileList | null) {
     if (!files) return;
@@ -176,6 +178,62 @@ export default function Home() {
     }
   }
 
+  function replayDemoHarden(h: HardenedResult) {
+    const synthetic: HardenEvent[] = [];
+    synthetic.push({ type: "started", max_iterations: h.iterations.length });
+    for (const it of h.iterations) {
+      synthetic.push({ type: "iteration_started", iteration: it.iteration });
+      synthetic.push({ type: "counterparty_working", iteration: it.iteration });
+      synthetic.push({
+        type: "counterparty_done",
+        iteration: it.iteration,
+        rejection_likelihood: it.counterparty_review.rejection_likelihood,
+        overall_assessment: it.counterparty_review.overall_assessment,
+        weaknesses: it.counterparty_review.weaknesses,
+      });
+      synthetic.push({
+        type: "research_dispatched",
+        iteration: it.iteration,
+        weakness_count: it.counterparty_review.weaknesses.length,
+      });
+      for (const w of it.counterparty_review.weaknesses) {
+        synthetic.push({
+          type: "researcher_working",
+          iteration: it.iteration,
+          weakness_id: w.id,
+          weakness_title: w.title,
+          queries: w.suggested_search_queries,
+        });
+      }
+      for (const r of it.research_results) {
+        synthetic.push({
+          type: "researcher_done",
+          iteration: it.iteration,
+          weakness_id: r.weakness_id,
+          evidence_count: r.evidence.length,
+          evidence: r.evidence,
+        });
+      }
+      synthetic.push({ type: "reviser_working", iteration: it.iteration });
+      synthetic.push({
+        type: "reviser_done",
+        iteration: it.iteration,
+        response_preview: h.final_response.response_text.slice(0, 400),
+        new_attachment_count: h.final_response.attachments_needed.length,
+      });
+    }
+    const finalEvt: Extract<HardenEvent, { type: "final" }> = {
+      type: "final",
+      original_response: h.original_response,
+      final_response: h.final_response,
+      iterations: h.iterations,
+      evidence_binder: h.evidence_binder,
+    };
+    synthetic.push(finalEvt);
+    setHardenEvents(synthetic);
+    setHardened(finalEvt);
+  }
+
   async function runHarden() {
     if (!response || !selectedOption) return;
     setHardenEvents([]);
@@ -183,6 +241,14 @@ export default function Home() {
     setHardening(true);
     setError(null);
     setStage("harden");
+
+    // Pre-recorded harden replay for loaded demos — skips the 5-15 min live run.
+    if (demoHarden) {
+      replayDemoHarden(demoHarden);
+      setHardening(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/harden", {
         method: "POST",
@@ -248,6 +314,7 @@ export default function Home() {
       setSelectedOption(demo.option);
       setResponse(demo.response);
       setVerification(demo.verification ?? null);
+      setDemoHarden(demo.hardened ?? null);
       setHardenEvents([]);
       setHardened(null);
       setStage("response");
@@ -322,29 +389,51 @@ export default function Home() {
     setHardenEvents([]);
     setHardened(null);
     setVerification(null);
+    setDemoHarden(null);
   }
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-zinc-200 dark:border-zinc-800">
-        <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
+      <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-md bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center">
-              <span className="text-zinc-50 dark:text-zinc-900 font-semibold">P</span>
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-zinc-900 to-zinc-700 dark:from-zinc-100 dark:to-zinc-300 flex items-center justify-center shadow-sm">
+              <span className="text-zinc-50 dark:text-zinc-900 font-bold text-sm">P</span>
             </div>
             <div>
-              <h1 className="font-semibold tracking-tight">Paperwork</h1>
-              <p className="text-xs text-zinc-500">answer the letter</p>
+              <h1 className="font-semibold tracking-tight leading-none">Paperwork</h1>
+              <p className="text-xs text-zinc-500 mt-0.5">answer the letter</p>
             </div>
           </div>
-          {stage !== "upload" && (
-            <button
-              onClick={reset}
-              className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+          <div className="flex items-center gap-3">
+            {stage !== "upload" && (
+              <button
+                onClick={reset}
+                className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+              >
+                Start over
+              </button>
+            )}
+            <a
+              href="https://github.com/Ridwannurudeen/paperwork"
+              target="_blank"
+              rel="noreferrer"
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs rounded-full border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-900 px-3 py-1.5 text-zinc-700 dark:text-zinc-300"
+              title="View source on GitHub"
             >
-              Start over
-            </button>
-          )}
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+              </svg>
+              Source
+            </a>
+            <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              Live
+            </span>
+          </div>
         </div>
       </header>
 
@@ -423,10 +512,28 @@ export default function Home() {
         )}
       </main>
 
-      <footer className="border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
-        <div className="max-w-5xl mx-auto px-6 py-4">
-          Paperwork produces drafts for your review. Not legal advice. You are
-          responsible for the accuracy of anything you send.
+      <footer className="border-t border-zinc-200 dark:border-zinc-800 mt-12">
+        <div className="max-w-5xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-zinc-500">
+          <p className="max-w-2xl">
+            Paperwork produces drafts for your review. Not legal advice. You
+            are responsible for the accuracy of anything you send to any
+            authority.
+          </p>
+          <div className="flex items-center gap-4 shrink-0">
+            <a
+              href="https://github.com/Ridwannurudeen/paperwork"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-zinc-900 dark:hover:text-zinc-100 inline-flex items-center gap-1.5"
+            >
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+              </svg>
+              GitHub
+            </a>
+            <span className="text-zinc-400 dark:text-zinc-600">·</span>
+            <span>Built with Claude Opus 4.7</span>
+          </div>
         </div>
       </footer>
     </div>
@@ -454,55 +561,125 @@ function UploadStage({
 }) {
   const [dragging, setDragging] = useState(false);
   return (
-    <div className="flex flex-col gap-8">
-      <div className="rounded-xl border-2 border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/30 p-4">
-        <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-10">
+      {/* Hero */}
+      <section className="flex flex-col gap-5">
+        <span className="inline-flex self-start items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-zinc-500 dark:text-zinc-400">
+          <span className="h-px w-6 bg-zinc-300 dark:bg-zinc-700" />
+          Built with Claude Opus 4.7 · Live demo
+        </span>
+        <h2 className="text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.05]">
+          Answer the letter.
+          <br />
+          <span className="bg-gradient-to-r from-emerald-600 via-emerald-500 to-blue-500 dark:from-emerald-400 dark:via-emerald-300 dark:to-blue-300 bg-clip-text text-transparent">
+            Every citation, verified.
+          </span>
+        </h2>
+        <p className="text-zinc-600 dark:text-zinc-400 max-w-2xl text-base leading-relaxed">
+          Adverse government letters — tax, benefits, visa, court, labor,
+          utility — read, ranked, and answered in the source language. Three
+          agents draft, attack, and rewrite. A fourth checks every legal
+          citation against the actual statute on legislation.gov.uk and
+          eur-lex before it lands in your packet.
+        </p>
+        <div className="flex flex-wrap gap-2 text-[11px] font-medium">
+          <span className="rounded-full border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 text-zinc-600 dark:text-zinc-400">
+            Web-grounded analyze + draft
+          </span>
+          <span className="rounded-full border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 text-zinc-600 dark:text-zinc-400">
+            Source-verified citations
+          </span>
+          <span className="rounded-full border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 text-zinc-600 dark:text-zinc-400">
+            Adversarial harden loop
+          </span>
+          <span className="rounded-full border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 text-zinc-600 dark:text-zinc-400">
+            Open source · MIT
+          </span>
+        </div>
+      </section>
+
+      {/* Demo CTA card */}
+      <section className="relative rounded-2xl border-2 border-emerald-300 dark:border-emerald-900 bg-gradient-to-br from-emerald-50 via-white to-emerald-50 dark:from-emerald-950/40 dark:via-zinc-950 dark:to-emerald-950/40 p-5 shadow-sm">
+        <div className="flex flex-col gap-4">
           <div>
-            <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
-              Just looking? Skip the upload — load a finished case.
-            </p>
-            <p className="text-xs text-emerald-800/80 dark:text-emerald-200/80 mt-0.5">
-              Each demo loads instantly with the response letter and citation
-              audit table already populated. Click any verified citation to land
-              on the primary source.
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-700 dark:text-emerald-400 rounded bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5">
+                Try first
+              </span>
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                Skip the upload — load a finished case.
+              </p>
+            </div>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1.5">
+              Each demo populates the letter, response, and citation audit
+              table instantly. Click any verified citation to land on the
+              primary source. The corrupted variant shows the verifier
+              catching a fabricated reference live.
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => onLoadDemo("uk-dwp")}
-              className="rounded-full bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 text-xs font-medium whitespace-nowrap"
+              className="group rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition-colors px-4 py-2 text-xs font-medium whitespace-nowrap shadow-sm"
               title="UK Universal Credit overpayment — 5/5 citations verified against legislation.gov.uk."
             >
-              🇬🇧 UK · 5/5 verified
+              🇬🇧 UK · 5/5 verified <span className="opacity-60 group-hover:opacity-100">→</span>
             </button>
             <button
               onClick={() => onLoadDemo("buergergeld")}
-              className="rounded-full bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 text-xs font-medium whitespace-nowrap"
+              className="group rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition-colors px-4 py-2 text-xs font-medium whitespace-nowrap shadow-sm"
               title="German Bürgergeld Aufhebungsbescheid — letter and citations in German, verified against gesetze-im-internet.de."
             >
-              🇩🇪 DE · German welfare appeal
+              🇩🇪 DE · 11/13 verified <span className="opacity-60 group-hover:opacity-100">→</span>
             </button>
             <button
               onClick={() => onLoadDemo("uk-dwp-corrupted")}
-              className="rounded-full border-2 border-red-400 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 px-4 py-2 text-xs font-medium whitespace-nowrap"
+              className="group rounded-full bg-white dark:bg-zinc-950 border-2 border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors px-4 py-2 text-xs font-medium whitespace-nowrap"
               title="Same UK case with one citation deliberately mangled — watch the verifier catch the fake."
             >
-              ✗ Corrupted draft (verifier catches it)
+              ✗ Corrupted draft <span className="opacity-60 group-hover:opacity-100">→</span>
             </button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div>
-        <h2 className="text-3xl font-semibold tracking-tight">
-          Drop the letter you got.
-        </h2>
-        <p className="mt-2 text-zinc-600 dark:text-zinc-400 max-w-2xl">
+      {/* How it works */}
+      <section>
+        <h3 className="text-sm uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400 mb-4">
+          How it works
+        </h3>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <HowCard
+            step="01"
+            title="Read"
+            body="Vision model extracts authority, deadline, identifiers, key facts. Translates the letter to English on the side, in any of the major language families."
+            tone="zinc"
+          />
+          <HowCard
+            step="02"
+            title="Draft & verify"
+            body="Three agents grounded in web search: ranks every realistic response option, drafts the letter in the source language, and a fourth re-checks every citation against the actual statute."
+            tone="emerald"
+          />
+          <HowCard
+            step="03"
+            title="Harden"
+            body="A counterparty agent attacks the draft as the issuing authority. A researcher gathers public evidence to defend each weakness. A reviser rewrites. You get the audit trail."
+            tone="blue"
+          />
+        </div>
+      </section>
+
+      {/* Or upload your own */}
+      <section className="border-t border-zinc-200 dark:border-zinc-800 pt-8">
+        <h3 className="text-2xl font-semibold tracking-tight">
+          Or drop the letter you got.
+        </h3>
+        <p className="mt-2 text-zinc-600 dark:text-zinc-400 max-w-2xl text-sm">
           Tax notice. Benefit review. Visa refusal. Court summons. Labor
-          dispute. Utility fine. Any country, any language. We read it, explain
-          it, give you every way to respond — and draft the response.
+          dispute. Utility fine. Any country, any language.
         </p>
-      </div>
+      </section>
 
       <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
         <span className="font-medium text-zinc-800 dark:text-zinc-200">Before you upload:</span>{" "}
@@ -604,6 +781,35 @@ function UploadStage({
           Show me my options
         </button>
       </div>
+    </div>
+  );
+}
+
+function HowCard({
+  step,
+  title,
+  body,
+  tone,
+}: {
+  step: string;
+  title: string;
+  body: string;
+  tone: "zinc" | "emerald" | "blue";
+}) {
+  const accent = {
+    zinc: "text-zinc-400 dark:text-zinc-600",
+    emerald: "text-emerald-600 dark:text-emerald-400",
+    blue: "text-blue-600 dark:text-blue-400",
+  }[tone];
+  return (
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
+      <div className="flex items-baseline justify-between mb-2">
+        <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">{title}</h4>
+        <span className={`text-xs font-mono ${accent}`}>{step}</span>
+      </div>
+      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+        {body}
+      </p>
     </div>
   );
 }
@@ -884,12 +1090,18 @@ function ResponseStage({
                 onClick={onVerify}
                 disabled={verifying}
                 className="rounded-full bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 px-4 py-2 text-sm font-medium flex items-center gap-2"
-                title="A second-pass agent extracts every legal citation in your draft and verifies each one against primary sources via web search."
+                title={
+                  verification
+                    ? "Re-runs the verifier live — uses ~3 minutes and one of your hourly verify quota. The current panel below was loaded from the demo or a previous run."
+                    : "A second-pass agent extracts every legal citation in your draft and verifies each one against primary sources via web search."
+                }
               >
                 {verifying ? (
                   <>
                     <Spinner small /> Verifying citations…
                   </>
+                ) : verification ? (
+                  <>↻ Re-verify live (~3 min)</>
                 ) : (
                   <>✓ Verify citations</>
                 )}

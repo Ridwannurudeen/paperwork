@@ -14,7 +14,15 @@ export async function POST(request: NextRequest) {
   const rl = rateLimit(request, "ingest", 30, 60 * 60 * 1000);
   if (!rl.ok) return rateLimitResponse(rl.retryAfter);
 
-  const formData = await request.formData();
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return Response.json(
+      { error: "Expected multipart/form-data with a 'file' field." },
+      { status: 400 },
+    );
+  }
   const file = formData.get("file");
   if (!(file instanceof File)) {
     return Response.json({ error: "No file uploaded (field name 'file')" }, { status: 400 });

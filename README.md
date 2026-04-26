@@ -6,6 +6,22 @@ Paperwork reads adverse letters from any government, in any language, and produc
 
 Built on Claude Opus 4.7 (vision + long-running reasoning + web search).
 
+## Try it without uploading anything
+
+Open https://passage.gudman.xyz and click one of the three demo buttons at the top. Each loads a finished case instantly — letter, options, response, citation audit table, and a pre-recorded harden run already populated.
+
+| Demo | What you'll see |
+|---|---|
+| 🇬🇧 **UK · 5/5 verified** | UK Universal Credit overpayment, full draft response, citation panel: 5/5 green. Click any row → land on legislation.gov.uk, see the exact passage quoted. |
+| 🇩🇪 **DE · German welfare appeal** | Bürgergeld Aufhebungsbescheid response in German legal register, 13 citations checked against gesetze-im-internet.de — 11 green, 2 honest mismatches the verifier flags for the user to investigate. |
+| ✗ **Corrupted draft** | Same UK case with one citation deliberately mangled (`regulation 18` → `regulation 19`). The verifier returns 4/5 verified + 1 mismatch, links to the *correct* /regulation/18 page, and quotes the actual £16,000 passage. The "we caught our own fake" beat. |
+
+The verifier is a separate agent that extracts every citation from the draft and checks each one against a primary source via `web_search`. Status per citation: `verified`, `mismatch`, `not_found`, `ambiguous`, or `skipped`. Source URL + exact quote attached to every verified row.
+
+![Verifier panel — UK case, 5/5 verified](docs/verifier-panel.png)
+
+> _Drop your own screenshot at `docs/verifier-panel.png` — the demo on the live site is one click away if you'd rather grab it there._
+
 ## Stack
 
 - Next.js 16 (App Router, Turbopack)

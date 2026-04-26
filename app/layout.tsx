@@ -12,10 +12,27 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = "https://passage.gudman.xyz";
+const SITE_TITLE = "Paperwork — answer the letter";
+const SITE_DESCRIPTION =
+  "AI that reads adverse government letters and drafts a defensible response. Every legal citation is independently verified against primary sources — legislation.gov.uk, gesetze-im-internet.de, eur-lex — before it lands in your packet. Built on Claude Opus 4.7.";
+
 export const metadata: Metadata = {
-  title: "Paperwork — answer the letter",
-  description:
-    "Upload any government letter from any country in any language. See every way you can respond. Get a draft reply that's been attacked and defended by AI agents before you read it.",
+  metadataBase: new URL(SITE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    siteName: "Paperwork",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
