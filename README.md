@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Paperwork
 
-## Getting Started
+Answer the letter.
 
-First, run the development server:
+Paperwork reads adverse letters from any government, in any language, and produces a defensible response packet — drafted, adversarially stress-tested against the issuing authority, and grounded in primary legal sources via web search before a single citation is written.
+
+Built on Claude Opus 4.7 (vision + long-running reasoning + web search).
+
+## Stack
+
+- Next.js 16 (App Router, Turbopack)
+- TypeScript, Tailwind v4
+- `@anthropic-ai/sdk` — `claude-opus-4-7`
+- `web_search` server tool — every statute, regulation, or case citation is verified against primary sources (legislation.gov.uk, eur-lex, agency portals) before it lands in your draft
+- `zod` — strict validation of model output
+- `pdf-lib` — assembled response packet with cover letter + draft + evidence binder
+
+## Run locally
 
 ```bash
+cp .env.local.example .env.local
+# paste your ANTHROPIC_API_KEY into .env.local
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Flow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Ingest** (`/api/ingest`) — drop PDFs or images; Opus 4.7 classifies each document, extracts dates/identifiers/names/deadlines, and flags expirations, mismatches, unsigned letters.
+2. **Analyze** (`/api/analyze`) — returns every realistic response option for the matter (appeal, contest, negotiate, extension, escalate, comply), ranked strong/viable/weak. Every legal citation in this stage is web-verified.
+3. **Draft** (`/api/draft`) — given the chosen option, produces the actual response letter in the source language, in proper legal register for the issuing authority, with web-verified statutes/regulations and an attachments list.
+4. **Harden** (`/api/harden`, SSE) — three adversarial agents loop over the draft: one plays the counterparty officer and finds every weakness, one researches public evidence to address each weakness, one revises the draft with the new evidence. Streams progress back to the UI.
+5. **Packet** (`/api/packet`) — assembles cover letter + revised draft + evidence binder + checklist into a single downloadable PDF.
 
-## Learn More
+## Why this exists
 
-To learn more about Next.js, take a look at the following resources:
+Across every jurisdiction, the same pattern repeats: an authority sends a letter, the deadline is short, a paid advisor is unaffordable, and the recipient either ignores it or signs it. Both ways they lose. Paperwork compresses the work of a junior caseworker — research, drafting, anticipating counterparty objections, citing primary law — into a single session, and refuses to invent citations the model cannot verify.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## What isn't in this repo
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- No auth — sessions are in-memory / client state.
+- No database — case state lives in the browser until you download the packet.
+- No attorney.
+- No guarantees. Every draft is labeled for human review.
 
-## Deploy on Vercel
+## Disclaimer
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Paperwork is not a law firm and does not provide legal advice. Every output is a draft for your review. You are responsible for the accuracy of anything you submit to any authority.
