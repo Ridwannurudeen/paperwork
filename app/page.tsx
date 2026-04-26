@@ -902,14 +902,34 @@ function UploadStage({
           </p>
         </div>
 
-        <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-          <span className="font-medium text-zinc-800 dark:text-zinc-200">Before you upload:</span>{" "}
-          Your documents go directly to Anthropic for analysis and are not stored
-          on our servers — no database, no logs, no retention. Case state lives in
-          this browser tab; closing it erases everything. Redact anything you do
-          not want a model or a researcher to see. Avoid uploading documents you
-          cannot afford to share. By continuing you accept these terms and
-          confirm the documents are yours or you have permission to share them.
+        <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed space-y-1.5">
+          <p>
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Documents:
+            </span>{" "}
+            Your uploads go directly to Anthropic for analysis and are not
+            stored on our servers — no database, no logs, no retention. Case
+            state lives in this browser tab; closing it erases everything.
+          </p>
+          <p>
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Voice input:
+            </span>{" "}
+            If you click <span className="font-mono">Speak</span>, your audio
+            is transcribed by your browser&apos;s built-in speech service
+            (Google in Chrome / Edge, Apple in Safari) — same flow as any
+            voice search. We never see the audio; we only receive the
+            transcribed text. Read-aloud runs entirely on your device.
+          </p>
+          <p>
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Your responsibility:
+            </span>{" "}
+            Redact anything you do not want a model or a third party to see.
+            Avoid uploading documents you cannot afford to share. By continuing
+            you accept these terms and confirm the documents are yours or you
+            have permission to share them.
+          </p>
         </div>
 
         <div
