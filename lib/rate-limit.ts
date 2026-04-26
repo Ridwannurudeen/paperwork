@@ -4,10 +4,18 @@ type Bucket = { count: number; reset: number };
 const buckets = new Map<string, Bucket>();
 
 function clientIp(req: NextRequest): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]!.trim();
+  // Prefer X-Real-IP — our nginx sets it explicitly to $remote_addr, so it
+  // can't be spoofed by client-supplied headers. We only fall back to
+  // X-Forwarded-For (and only the LAST hop, which nginx writes) if
+  // X-Real-IP is missing. Don't trust the first hop of XFF — it can be
+  // attacker-supplied and fool the per-IP rate limit.
   const real = req.headers.get("x-real-ip");
   if (real) return real.trim();
+  const fwd = req.headers.get("x-forwarded-for");
+  if (fwd) {
+    const parts = fwd.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1]!;
+  }
   return "unknown";
 }
 

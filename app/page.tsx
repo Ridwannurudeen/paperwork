@@ -13,6 +13,27 @@ import type {
   ExtractedCitation,
   HardenedResult,
 } from "@/lib/types";
+import {
+  ExtractedDocumentSchema,
+  ResponseAnalysisSchema,
+  ResponseOptionSchema,
+  ResponseLetterSchema,
+  CitationVerificationResultSchema,
+  HardenedResultSchema,
+} from "@/lib/types";
+import { z } from "zod";
+
+const DemoBundleSchema = z.object({
+  label: z.string().optional(),
+  description: z.string().optional(),
+  documents: z.array(ExtractedDocumentSchema).min(1),
+  free_text_context: z.string().optional(),
+  analysis: ResponseAnalysisSchema,
+  option: ResponseOptionSchema,
+  response: ResponseLetterSchema,
+  verification: CitationVerificationResultSchema.optional(),
+  hardened: HardenedResultSchema.optional(),
+});
 
 type VerifyEvent =
   | { type: "started" }
@@ -79,6 +100,19 @@ type UploadedDoc = {
 
 type Stage = "upload" | "analyze" | "options" | "response" | "harden";
 
+// Only allow http/https URLs into <a href> from model output. Stops the
+// model from accidentally (or via prompt-injection) producing a
+// `javascript:`, `data:`, or other scheme that React doesn't block.
+function isSafeHttpUrl(url: string | null | undefined): url is string {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 // Noto Sans (regular) covers Latin Extended + Cyrillic + Greek. RTL and CJK are
 // roadmap. Returns false for languages the embedded PDF font cannot render.
 function isPdfRenderableLanguage(lang: string | null | undefined): boolean {
@@ -121,6 +155,13 @@ export default function Home() {
     notes: string;
   } | null>(null);
   const [demoHarden, setDemoHarden] = useState<HardenedResult | null>(null);
+
+  // AbortControllers for in-flight long-running requests. We hold the
+  // current controller per-route so a second click aborts the first
+  // (preventing stale-event-overwrites-new-state races).
+  const verifyAbortRef = useRef<AbortController | null>(null);
+  const hardenAbortRef = useRef<AbortController | null>(null);
+  const fixAbortRef = useRef<AbortController | null>(null);
 
   async function handleFiles(files: FileList | null) {
     if (!files) return;
@@ -251,6 +292,10 @@ export default function Home() {
 
   async function runHarden() {
     if (!response || !selectedOption) return;
+    // Abort any prior harden still streaming.
+    hardenAbortRef.current?.abort();
+    const controller = new AbortController();
+    hardenAbortRef.current = controller;
     setHardenEvents([]);
     setHardened(null);
     setHardening(true);
@@ -261,6 +306,7 @@ export default function Home() {
     if (demoHarden) {
       replayDemoHarden(demoHarden);
       setHardening(false);
+      if (hardenAbortRef.current === controller) hardenAbortRef.current = null;
       return;
     }
 
@@ -274,10 +320,16 @@ export default function Home() {
           response,
           max_iterations: 2,
         }),
+        signal: controller.signal,
       });
       if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`HTTP ${res.status}: ${body.slice(0, 300)}`);
+        const text = await res.text();
+        try {
+          const j = JSON.parse(text);
+          throw new Error(j.error ?? `HTTP ${res.status}`);
+        } catch {
+          throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+        }
       }
       if (!res.body) throw new Error("no response body");
 
@@ -285,11 +337,13 @@ export default function Home() {
       const decoder = new TextDecoder();
       let buf = "";
       while (true) {
+        if (controller.signal.aborted) break;
         const { value, done } = await reader.read();
         if (done) break;
         buf += decoder.decode(value, { stream: true });
         let idx;
         while ((idx = buf.indexOf("\n\n")) !== -1) {
+          if (controller.signal.aborted) break;
           const frame = buf.slice(0, idx);
           buf = buf.slice(idx + 2);
           const line = frame.split("\n").find((l) => l.startsWith("data: "));
@@ -306,20 +360,47 @@ export default function Home() {
         }
       }
     } catch (e) {
-      setError((e as Error).message);
+      const isAbort =
+        (e as { name?: string }).name === "AbortError" ||
+        controller.signal.aborted;
+      if (!isAbort) {
+        setError((e as Error).message);
+      }
     } finally {
+      if (hardenAbortRef.current === controller) hardenAbortRef.current = null;
       setHardening(false);
     }
   }
 
   async function loadDemo(slug: "uk-dwp" | "uk-dwp-corrupted" | "buergergeld") {
     setError(null);
+    // Cancel anything running so the demo state isn't clobbered after
+    // it's loaded.
+    verifyAbortRef.current?.abort();
+    hardenAbortRef.current?.abort();
+    fixAbortRef.current?.abort();
     try {
       const res = await fetch(`/demo/${slug}.json`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const demo = await res.json();
+      const text = await res.text();
+      let raw: unknown;
+      try {
+        raw = JSON.parse(text);
+      } catch {
+        throw new Error("demo file is not valid JSON");
+      }
+      const parsed = DemoBundleSchema.safeParse(raw);
+      if (!parsed.success) {
+        throw new Error(
+          `demo file shape unexpected: ${parsed.error.issues
+            .slice(0, 3)
+            .map((i) => i.path.join(".") + ": " + i.message)
+            .join("; ")}`,
+        );
+      }
+      const demo = parsed.data;
       setDocs(
-        demo.documents.map((d: ExtractedDocument, i: number) => ({
+        demo.documents.map((d, i) => ({
           filename: `demo-${slug}-${i + 1}.pdf`,
           document: d,
         })),
@@ -342,6 +423,10 @@ export default function Home() {
 
   async function runVerify() {
     if (!response) return;
+    // Abort any prior verify still streaming; we own the panel now.
+    verifyAbortRef.current?.abort();
+    const controller = new AbortController();
+    verifyAbortRef.current = controller;
     setVerifying(true);
     setError(null);
     setVerification(null);
@@ -355,6 +440,7 @@ export default function Home() {
           response,
           jurisdiction_hint: jurisdictionHint,
         }),
+        signal: controller.signal,
       });
       if (!res.ok) {
         const text = await res.text();
@@ -386,11 +472,13 @@ export default function Home() {
       };
 
       while (true) {
+        if (controller.signal.aborted) break;
         const { value, done } = await reader.read();
         if (done) break;
         buf += decoder.decode(value, { stream: true });
         let idx;
         while ((idx = buf.indexOf("\n\n")) !== -1) {
+          if (controller.signal.aborted) break;
           const frame = buf.slice(0, idx);
           buf = buf.slice(idx + 2);
           const line = frame.split("\n").find((l) => l.startsWith("data: "));
@@ -402,9 +490,12 @@ export default function Home() {
             continue;
           }
           if (evt.type === "extracted") {
+            // Server overrides the displayed total via final summary, but
+            // we want to show "n of N checked" while streaming.
             progressive = {
               ...progressive,
               citations: evt.citations,
+              summary: { ...progressive.summary, total: evt.citations.length },
             };
             setVerification({ ...progressive });
           } else if (evt.type === "verifier_done") {
@@ -421,43 +512,63 @@ export default function Home() {
             progressive = { ...progressive, verifications, summary };
             setVerification({ ...progressive });
           } else if (evt.type === "final") {
-            progressive = evt.result;
-            setVerification(evt.result);
+            // Preserve the citation-count semantics — server's
+            // summary.total is verifications.length, ours is citations.length.
+            progressive = {
+              ...evt.result,
+              summary: {
+                ...evt.result.summary,
+                total: evt.result.citations.length || evt.result.summary.total,
+              },
+            };
+            setVerification(progressive);
           } else if (evt.type === "error") {
             throw new Error(evt.message);
           }
         }
       }
     } catch (e) {
-      setError(`Citation verification failed: ${(e as Error).message}`);
+      const isAbort =
+        (e as { name?: string }).name === "AbortError" ||
+        controller.signal.aborted;
+      if (!isAbort) {
+        setError(`Citation verification failed: ${(e as Error).message}`);
+      }
     } finally {
+      if (verifyAbortRef.current === controller) verifyAbortRef.current = null;
       setVerifying(false);
     }
   }
 
-  async function runFixCitation(verification: CitationVerification) {
-    if (!response || !verification) return;
-    if (
-      verification.status !== "mismatch" &&
-      verification.status !== "not_found"
-    )
-      return;
-    const cit = verification && verificationCitationById(verification.citation_id);
+  async function runFixCitation(v: CitationVerification) {
+    if (!response || !v) return;
+    if (v.status !== "mismatch" && v.status !== "not_found") return;
+    const cit = verificationCitationById(v.citation_id);
     if (!cit) return;
-    setFixing(verification.citation_id);
+    // Snapshot the current draft at click time. If something else replaces
+    // `response` mid-flight, we still send what the user saw being fixed.
+    const draft = response;
+    // Abort previous fix + any verify that's about to be invalidated.
+    fixAbortRef.current?.abort();
+    verifyAbortRef.current?.abort();
+    const controller = new AbortController();
+    fixAbortRef.current = controller;
+    setFixing(v.citation_id);
     setError(null);
     try {
       const res = await fetch("/api/fix-citation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          response,
+          response: draft,
           citation: cit,
-          verification,
+          verification: v,
         }),
+        signal: controller.signal,
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Auto-fix failed");
+      if (controller.signal.aborted) return;
       if (json.changed) {
         // Replace the response with the fixed version. Clear verification
         // so the user can re-verify the corrected draft. Drop demo harden
@@ -474,8 +585,14 @@ export default function Home() {
         setError(`Auto-fix declined: ${json.notes}`);
       }
     } catch (e) {
-      setError(`Auto-fix failed: ${(e as Error).message}`);
+      const isAbort =
+        (e as { name?: string }).name === "AbortError" ||
+        controller.signal.aborted;
+      if (!isAbort) {
+        setError(`Auto-fix failed: ${(e as Error).message}`);
+      }
     } finally {
+      if (fixAbortRef.current === controller) fixAbortRef.current = null;
       setFixing(null);
     }
   }
@@ -514,6 +631,11 @@ export default function Home() {
   }
 
   function reset() {
+    // Cancel any in-flight long-running requests so they can't keep
+    // mutating state after we've returned to the upload stage.
+    verifyAbortRef.current?.abort();
+    hardenAbortRef.current?.abort();
+    fixAbortRef.current?.abort();
     setDocs([]);
     setFreeText("");
     setAnalysis(null);
@@ -2539,10 +2661,7 @@ function CitationRow({
     verification.status === "mismatch" || verification.status === "not_found";
 
   return (
-    <details
-      className={`rounded-lg border-2 ${tone} p-3 text-sm`}
-      open={fixable}
-    >
+    <CollapsibleDetails initialOpen={fixable} className={`rounded-lg border-2 ${tone} p-3 text-sm`}>
       <summary className="cursor-pointer flex items-center gap-2 flex-wrap">
         <span
           className={`text-xs rounded-full px-2 py-0.5 font-mono ${badge}`}
@@ -2568,11 +2687,11 @@ function CitationRow({
             {verification.source_quote}
           </blockquote>
         )}
-        {verification.source_url && (
+        {isSafeHttpUrl(verification.source_url) && (
           <a
             href={verification.source_url}
             target="_blank"
-            rel="noreferrer"
+            rel="noreferrer noopener"
             className="underline text-blue-700 dark:text-blue-300 break-all"
           >
             {verification.source_title ?? verification.source_url}
@@ -2600,6 +2719,31 @@ function CitationRow({
           </div>
         )}
       </div>
+    </CollapsibleDetails>
+  );
+}
+
+// Wrapper around <details> that lets us seed the initial open state but
+// still respects user toggles. Native React <details open={x}> is
+// controlled and prevents the user from collapsing — bad UX for a panel
+// where mismatched rows want to open by default but be closable.
+function CollapsibleDetails({
+  initialOpen,
+  className,
+  children,
+}: {
+  initialOpen: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(initialOpen);
+  return (
+    <details
+      className={className}
+      open={open}
+      onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+    >
+      {children}
     </details>
   );
 }
@@ -2806,11 +2950,11 @@ function HardenStage({
                 <ul className="list-disc pl-4 text-zinc-700 dark:text-zinc-300 space-y-0.5">
                   {r.evidence.slice(0, 3).map((e, i) => (
                     <li key={i}>
-                      {e.source_url ? (
+                      {isSafeHttpUrl(e.source_url) ? (
                         <a
                           href={e.source_url}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noreferrer noopener"
                           className="underline truncate block"
                         >
                           {e.source_title}

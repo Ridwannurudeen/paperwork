@@ -28,6 +28,10 @@ const ExtractorOutputSchema = z.object({
 });
 
 const CONCURRENCY = 4;
+// Hard upper bound on how many citations we'll verify per call. The
+// extractor pulls citations from attacker-controllable response_text; we
+// cap to keep one verify request from triggering hundreds of LLM calls.
+const MAX_CITATIONS = 25;
 
 function sseLine(event: unknown): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`);
@@ -122,6 +126,15 @@ export async function POST(request: NextRequest) {
           const msg = e instanceof Error ? e.message : String(e);
           send({ type: "error", message: `Extractor failed: ${msg}` });
           return;
+        }
+
+        if (citations.length > MAX_CITATIONS) {
+          send({
+            type: "truncated",
+            extracted: citations.length,
+            kept: MAX_CITATIONS,
+          });
+          citations = citations.slice(0, MAX_CITATIONS);
         }
 
         send({ type: "extracted", citations });
