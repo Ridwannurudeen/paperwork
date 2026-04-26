@@ -532,7 +532,7 @@ export default function Home() {
   return (
     <div className="flex flex-1 flex-col">
       <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-zinc-900 to-zinc-700 dark:from-zinc-100 dark:to-zinc-300 flex items-center justify-center shadow-sm">
               <span className="text-zinc-50 dark:text-zinc-900 font-bold text-sm">P</span>
@@ -574,7 +574,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-6 py-10">
+      <main className={`flex-1 w-full mx-auto px-6 py-10 ${stage === "upload" ? "max-w-6xl" : "max-w-5xl"}`}>
         {error && (
           <div className="mb-6 rounded-lg border border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950/30 px-4 py-3 text-sm text-red-900 dark:text-red-200">
             {error}
@@ -655,7 +655,7 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-zinc-200 dark:border-zinc-800 mt-12">
-        <div className="max-w-5xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-zinc-500">
+        <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-zinc-500">
           <p className="max-w-2xl">
             Paperwork produces drafts for your review. Not legal advice. You
             are responsible for the accuracy of anything you send to any
@@ -703,124 +703,232 @@ function UploadStage({
 }) {
   const [dragging, setDragging] = useState(false);
   return (
-    <div className="flex flex-col gap-10">
-      {/* Hero */}
-      <section className="flex flex-col gap-5">
-        <span className="inline-flex self-start items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-zinc-500 dark:text-zinc-400">
-          <span className="h-px w-6 bg-zinc-300 dark:bg-zinc-700" />
-          Built with Claude Opus 4.7 · Live demo
-        </span>
-        <h2 className="text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.05]">
-          Answer the letter.
-          <br />
-          <span className="bg-gradient-to-r from-emerald-600 via-emerald-500 to-blue-500 dark:from-emerald-400 dark:via-emerald-300 dark:to-blue-300 bg-clip-text text-transparent">
-            Every citation, verified.
+    <div className="flex flex-col gap-16 sm:gap-24">
+      {/* Hero — 2 column */}
+      <section className="grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-12 items-center pt-4 sm:pt-8">
+        <div className="flex flex-col gap-6">
+          <span className="inline-flex self-start items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="h-px w-6 bg-zinc-300 dark:bg-zinc-700" />
+            Built with Claude Opus 4.7 · Live demo
           </span>
-        </h2>
-        <p className="text-zinc-600 dark:text-zinc-400 max-w-2xl text-base leading-relaxed">
-          Adverse government letters — tax, benefits, visa, court, labor,
-          utility — read, ranked, and answered in the source language. Three
-          agents draft, attack, and rewrite. A fourth checks every legal
-          citation against the actual statute on legislation.gov.uk and
-          eur-lex before it lands in your packet.
-        </p>
-        <div className="flex flex-wrap gap-2 text-[11px] font-medium">
-          <span className="rounded-full border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 text-zinc-600 dark:text-zinc-400">
-            Web-grounded analyze + draft
-          </span>
-          <span className="rounded-full border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 text-zinc-600 dark:text-zinc-400">
-            Source-verified citations
-          </span>
-          <span className="rounded-full border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 text-zinc-600 dark:text-zinc-400">
-            Adversarial harden loop
-          </span>
-          <span className="rounded-full border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 text-zinc-600 dark:text-zinc-400">
-            Open source · MIT
-          </span>
+          <h2 className="text-[44px] sm:text-6xl font-semibold tracking-tight leading-[1.02]">
+            Answer the letter.
+            <br />
+            <span className="bg-gradient-to-r from-emerald-600 via-emerald-500 to-blue-500 dark:from-emerald-400 dark:via-emerald-300 dark:to-blue-300 bg-clip-text text-transparent">
+              Every citation, verified.
+            </span>
+          </h2>
+          <p className="text-zinc-600 dark:text-zinc-400 max-w-xl text-[15px] sm:text-base leading-relaxed">
+            Upload an adverse government letter — tax, benefits, visa, court,
+            labor, utility. Paperwork reads it, ranks every legal path you can
+            take, drafts the response in your letter's language, and
+            independently re-checks every statute it cited against
+            legislation.gov.uk and other primary sources before it reaches
+            your packet.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => onLoadDemo("uk-dwp")}
+              className="group rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all px-6 py-3 text-sm font-medium inline-flex items-center gap-2 shadow-sm hover:shadow-md"
+            >
+              See the live demo
+              <span className="transition-transform group-hover:translate-x-0.5">→</span>
+            </button>
+            <a
+              href="https://github.com/Ridwannurudeen/paperwork"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full border border-zinc-300 dark:border-zinc-700 hover:border-zinc-900 dark:hover:border-zinc-100 transition-colors px-6 py-3 text-sm font-medium inline-flex items-center gap-2"
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+              </svg>
+              View source
+            </a>
+          </div>
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-[12px] text-zinc-500 dark:text-zinc-500 pt-1">
+            <span className="inline-flex items-center gap-1.5">
+              <CheckIcon className="text-emerald-600 dark:text-emerald-400" />
+              No signup, no DB, no logs
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <CheckIcon className="text-emerald-600 dark:text-emerald-400" />
+              Source on GitHub
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <CheckIcon className="text-emerald-600 dark:text-emerald-400" />
+              Free demo
+            </span>
+          </div>
         </div>
+        <VerifierPreview />
+      </section>
+
+      {/* Stats strip */}
+      <section className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-6 border-y border-zinc-200 dark:border-zinc-800 py-8">
+        <Stat number="6,265" unit="char draft" label="UK DWP demo letter, full UK welfare-tribunal register" />
+        <Stat number="13" unit="citations" label="Independently checked against gesetze-im-internet.de on the German demo" />
+        <Stat number="0" unit="fabrications" label="Verifier catches its own bad citations before they reach you" />
+        <Stat number="3" unit="languages" label="English · German · ready for any Latin/Cyrillic/Greek script" />
       </section>
 
       {/* Demo CTA card */}
-      <section className="relative rounded-2xl border-2 border-emerald-300 dark:border-emerald-900 bg-gradient-to-br from-emerald-50 via-white to-emerald-50 dark:from-emerald-950/40 dark:via-zinc-950 dark:to-emerald-950/40 p-5 shadow-sm">
-        <div className="flex flex-col gap-4">
-          <div>
-            <div className="flex items-center gap-2">
+      <section id="demos" className="relative rounded-2xl border-2 border-emerald-300 dark:border-emerald-900 bg-gradient-to-br from-emerald-50 via-white to-emerald-50/60 dark:from-emerald-950/40 dark:via-zinc-950 dark:to-emerald-950/40 p-6 sm:p-7 shadow-sm">
+        <div className="flex flex-col gap-5">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
               <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-700 dark:text-emerald-400 rounded bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5">
                 Try first
               </span>
-              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Skip the upload — load a finished case.
+              <h3 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight">
+                Three demos. No upload required.
+              </h3>
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400 max-w-2xl">
+                Each loads instantly with letter, response, and citation audit
+                table populated. Click any verified row to land on the actual
+                statute. The corrupted variant lets you watch the verifier
+                catch a fabricated citation in real time.
               </p>
             </div>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1.5">
-              Each demo populates the letter, response, and citation audit
-              table instantly. Click any verified citation to land on the
-              primary source. The corrupted variant shows the verifier
-              catching a fabricated reference live.
-            </p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
+          <div className="grid sm:grid-cols-3 gap-3">
+            <DemoTile
+              flag="🇬🇧"
+              jurisdiction="United Kingdom"
+              title="Universal Credit overpayment"
+              metric="5/5 citations verified"
+              tone="emerald"
               onClick={() => onLoadDemo("uk-dwp")}
-              className="group rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition-colors px-4 py-2 text-xs font-medium whitespace-nowrap shadow-sm"
-              title="UK Universal Credit overpayment — 5/5 citations verified against legislation.gov.uk."
-            >
-              🇬🇧 UK · 5/5 verified <span className="opacity-60 group-hover:opacity-100">→</span>
-            </button>
-            <button
+            />
+            <DemoTile
+              flag="🇩🇪"
+              jurisdiction="Germany"
+              title="Bürgergeld Aufhebungsbescheid"
+              metric="11/13 citations verified"
+              tone="emerald"
               onClick={() => onLoadDemo("buergergeld")}
-              className="group rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition-colors px-4 py-2 text-xs font-medium whitespace-nowrap shadow-sm"
-              title="German Bürgergeld Aufhebungsbescheid — letter and citations in German, verified against gesetze-im-internet.de."
-            >
-              🇩🇪 DE · 11/13 verified <span className="opacity-60 group-hover:opacity-100">→</span>
-            </button>
-            <button
+            />
+            <DemoTile
+              flag="✗"
+              jurisdiction="UK · corrupted draft"
+              title="Verifier catches the fake"
+              metric="4 verified · 1 mismatch"
+              tone="red"
               onClick={() => onLoadDemo("uk-dwp-corrupted")}
-              className="group rounded-full bg-white dark:bg-zinc-950 border-2 border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors px-4 py-2 text-xs font-medium whitespace-nowrap"
-              title="Same UK case with one citation deliberately mangled — watch the verifier catch the fake."
-            >
-              ✗ Corrupted draft <span className="opacity-60 group-hover:opacity-100">→</span>
-            </button>
+            />
           </div>
         </div>
       </section>
 
       {/* How it works */}
-      <section>
-        <h3 className="text-sm uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400 mb-4">
-          How it works
-        </h3>
-        <div className="grid sm:grid-cols-3 gap-3">
+      <section className="flex flex-col gap-6">
+        <div>
+          <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="h-px w-6 bg-zinc-300 dark:bg-zinc-700" />
+            How it works
+          </span>
+          <h3 className="mt-3 text-3xl font-semibold tracking-tight max-w-2xl">
+            Four agents in series. Trust spine end to end.
+          </h3>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <HowCard
             step="01"
             title="Read"
-            body="Vision model extracts authority, deadline, identifiers, key facts. Translates the letter to English on the side, in any of the major language families."
+            body="Vision model extracts authority, deadline, identifiers, key facts. Translates non-English letters to English on the side."
             tone="zinc"
           />
           <HowCard
             step="02"
-            title="Draft & verify"
-            body="Three agents grounded in web search: ranks every realistic response option, drafts the letter in the source language, and a fourth re-checks every citation against the actual statute."
+            title="Draft & ground"
+            body="Web-grounded analyze ranks every realistic response option. Web-grounded draft writes the letter in the source language and proper legal register."
             tone="emerald"
           />
           <HowCard
             step="03"
+            title="Verify"
+            body="Streaming verifier extracts every citation, checks each against legislation.gov.uk / eur-lex / gov.uk in real time. Auto-fix rewrites the broken ones."
+            tone="emerald"
+          />
+          <HowCard
+            step="04"
             title="Harden"
-            body="A counterparty agent attacks the draft as the issuing authority. A researcher gathers public evidence to defend each weakness. A reviser rewrites. You get the audit trail."
+            body="A counterparty agent attacks. A researcher gathers public evidence. A reviser rewrites. The audit trail goes in the packet."
             tone="blue"
           />
         </div>
       </section>
 
+      {/* Use cases */}
+      <section className="flex flex-col gap-6">
+        <div>
+          <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="h-px w-6 bg-zinc-300 dark:bg-zinc-700" />
+            Letters Paperwork reads
+          </span>
+          <h3 className="mt-3 text-3xl font-semibold tracking-tight max-w-2xl">
+            Any authority. Any language. Any jurisdiction.
+          </h3>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <UseCaseTile icon="🧾" title="Tax notices" body="HMRC assessments, IRS CP/Notice series, AEAT requerimientos, Receita auto de infração." />
+          <UseCaseTile icon="🏛" title="Benefit reviews" body="DWP UC overpayments, Bürgergeld Aufhebungs­bescheid, CAF prime d'activité clawback." />
+          <UseCaseTile icon="🛂" title="Visa refusals" body="USCIS RFEs, IRCC TRV refusals, UK Home Office refusals, Schengen Article 32 grounds." />
+          <UseCaseTile icon="⚖️" title="Court summons" body="Small-claims notices, county-court particulars of claim, tribunal directions, default judgments." />
+          <UseCaseTile icon="🛠" title="Labor disputes" body="Saudi MoHRSD complaints, French prud'hommes, German Kündigungsschutzklage, US wage claims." />
+          <UseCaseTile icon="💡" title="Utility fines" body="Disconnection notices, late-fee assessments, regulator-issued penalties, billing-error letters." />
+        </div>
+      </section>
+
+      {/* Trust signals */}
+      <section className="flex flex-col gap-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 p-6 sm:p-8">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">
+              Verified against
+            </span>
+            <h3 className="mt-2 text-xl font-semibold tracking-tight">
+              Primary sources. Not summaries.
+            </h3>
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-500 max-w-md">
+            Every `verified` row in the citation audit table links to one of
+            these. Click and you land on the exact passage of the actual
+            statute or guidance.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 text-[11px]">
+          <SourceChip name="legislation.gov.uk" jurisdiction="UK" />
+          <SourceChip name="gesetze-im-internet.de" jurisdiction="DE" />
+          <SourceChip name="eur-lex.europa.eu" jurisdiction="EU" />
+          <SourceChip name="legifrance.gouv.fr" jurisdiction="FR" />
+          <SourceChip name="boe.es" jurisdiction="ES" />
+          <SourceChip name="planalto.gov.br" jurisdiction="BR" />
+          <SourceChip name="laws-lois.justice.gc.ca" jurisdiction="CA" />
+          <SourceChip name="uscode.house.gov" jurisdiction="US" />
+          <SourceChip name="gov.uk · ADM" jurisdiction="UK" />
+          <SourceChip name="shelter.org.uk" jurisdiction="UK" />
+          <SourceChip name="cpag.org.uk" jurisdiction="UK" />
+          <SourceChip name="court registries" jurisdiction="—" />
+        </div>
+      </section>
+
       {/* Or upload your own */}
-      <section className="border-t border-zinc-200 dark:border-zinc-800 pt-8">
-        <h3 className="text-2xl font-semibold tracking-tight">
-          Or drop the letter you got.
-        </h3>
-        <p className="mt-2 text-zinc-600 dark:text-zinc-400 max-w-2xl text-sm">
-          Tax notice. Benefit review. Visa refusal. Court summons. Labor
-          dispute. Utility fine. Any country, any language.
-        </p>
+      <section className="flex flex-col gap-5 border-t border-zinc-200 dark:border-zinc-800 pt-12">
+        <div>
+          <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="h-px w-6 bg-zinc-300 dark:bg-zinc-700" />
+            Or upload your own letter
+          </span>
+          <h3 className="mt-3 text-3xl font-semibold tracking-tight">
+            Drop a PDF or photo. Multiple files OK.
+          </h3>
+          <p className="mt-2 text-zinc-600 dark:text-zinc-400 max-w-2xl text-sm">
+            Snap the letter on your kitchen table. Add the bank statement,
+            payslip, or ID that supports your case. Everything is processed in
+            this browser tab and discarded server-side.
+          </p>
+        </div>
       </section>
 
       <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
@@ -944,14 +1052,263 @@ function HowCard({
     blue: "text-blue-600 dark:text-blue-400",
   }[tone];
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
-      <div className="flex items-baseline justify-between mb-2">
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5 hover:border-zinc-400 dark:hover:border-zinc-700 hover:shadow-sm transition-all">
+      <div className="flex items-baseline justify-between mb-3">
         <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">{title}</h4>
         <span className={`text-xs font-mono ${accent}`}>{step}</span>
       </div>
       <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
         {body}
       </p>
+    </div>
+  );
+}
+
+function CheckIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="12"
+      height="12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3.5 8.5l3 3 6-7" />
+    </svg>
+  );
+}
+
+function Stat({
+  number,
+  unit,
+  label,
+}: {
+  number: string;
+  unit: string;
+  label: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums">
+          {number}
+        </span>
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">{unit}</span>
+      </div>
+      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-[26ch]">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function DemoTile({
+  flag,
+  jurisdiction,
+  title,
+  metric,
+  tone,
+  onClick,
+}: {
+  flag: string;
+  jurisdiction: string;
+  title: string;
+  metric: string;
+  tone: "emerald" | "red";
+  onClick: () => void;
+}) {
+  const cls =
+    tone === "emerald"
+      ? "border-emerald-200 dark:border-emerald-900/60 hover:border-emerald-500 dark:hover:border-emerald-500 bg-white dark:bg-zinc-950 hover:shadow-md"
+      : "border-red-200 dark:border-red-900/60 hover:border-red-500 dark:hover:border-red-500 bg-white dark:bg-zinc-950 hover:shadow-md";
+  const metricCls =
+    tone === "emerald"
+      ? "text-emerald-700 dark:text-emerald-400"
+      : "text-red-700 dark:text-red-400";
+  return (
+    <button
+      onClick={onClick}
+      className={`group text-left rounded-xl border-2 ${cls} transition-all p-5 flex flex-col gap-2 cursor-pointer`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-2xl leading-none">{flag}</span>
+        <span className="text-xs text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-200 transition-colors">
+          Open →
+        </span>
+      </div>
+      <div className="text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-1">
+        {jurisdiction}
+      </div>
+      <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+        {title}
+      </div>
+      <div className={`text-xs font-medium mt-auto pt-1 ${metricCls}`}>
+        {metric}
+      </div>
+    </button>
+  );
+}
+
+function UseCaseTile({
+  icon,
+  title,
+  body,
+}: {
+  icon: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5 hover:border-zinc-400 dark:hover:border-zinc-700 hover:shadow-sm transition-all">
+      <div className="text-2xl leading-none mb-2">{icon}</div>
+      <h4 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-1.5">
+        {title}
+      </h4>
+      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+        {body}
+      </p>
+    </div>
+  );
+}
+
+function SourceChip({
+  name,
+  jurisdiction,
+}: {
+  name: string;
+  jurisdiction: string;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-2.5 py-1.5">
+      <span className="font-mono text-zinc-700 dark:text-zinc-300 truncate">
+        {name}
+      </span>
+      <span className="text-[10px] uppercase text-zinc-400 dark:text-zinc-600 ml-auto shrink-0">
+        {jurisdiction}
+      </span>
+    </div>
+  );
+}
+
+function VerifierPreview() {
+  // Static animated mock of the citation verifier panel — gives the hero
+  // visual proof of the product without making any API calls.
+  type Row = {
+    badge: "verified" | "checking" | "mismatch";
+    text: string;
+    source: string;
+    delay: number;
+  };
+  const rows: Row[] = [
+    {
+      badge: "verified",
+      text: "section 71ZB SSAA 1992",
+      source: "legislation.gov.uk",
+      delay: 0,
+    },
+    {
+      badge: "verified",
+      text: "regulation 18 UC Regs 2013",
+      source: "legislation.gov.uk",
+      delay: 0.4,
+    },
+    {
+      badge: "verified",
+      text: "section 9 Social Security Act 1998",
+      source: "legislation.gov.uk",
+      delay: 0.9,
+    },
+    {
+      badge: "verified",
+      text: "ADM Chapter H1 (capital)",
+      source: "gov.uk · publishing.service",
+      delay: 1.4,
+    },
+    {
+      badge: "checking",
+      text: "Shelter Legal England · capital",
+      source: "england.shelter.org.uk",
+      delay: 1.8,
+    },
+  ];
+  return (
+    <div className="relative">
+      <div className="absolute -inset-4 bg-gradient-to-br from-emerald-200/40 via-blue-200/30 to-emerald-200/40 dark:from-emerald-700/20 dark:via-blue-700/20 dark:to-emerald-700/20 blur-2xl rounded-3xl" />
+      <div className="relative rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-2xl shadow-zinc-200/50 dark:shadow-black/40 overflow-hidden">
+        {/* window chrome */}
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+          </div>
+          <p className="ml-3 text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
+            Citation verification
+          </p>
+          <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            Streaming
+          </span>
+        </div>
+        {/* summary pills */}
+        <div className="px-4 py-3 flex flex-wrap items-center gap-2 text-[11px] border-b border-zinc-100 dark:border-zinc-900 bg-white dark:bg-zinc-950">
+          <span className="rounded-full px-2 py-0.5 font-medium bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 hero-pill" style={{ animationDelay: "1.6s" }}>
+            4 verified
+          </span>
+          <span className="rounded-full px-2 py-0.5 font-medium bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hero-pill" style={{ animationDelay: "1.6s" }}>
+            1 checking
+          </span>
+          <span className="text-zinc-500 ml-1">of 5 extracted</span>
+        </div>
+        {/* rows */}
+        <ul className="divide-y divide-zinc-100 dark:divide-zinc-900">
+          {rows.map((r, i) => (
+            <li
+              key={i}
+              className="hero-row px-4 py-3 flex items-start gap-3"
+              style={{ animationDelay: `${r.delay}s` }}
+            >
+              <span
+                className={`shrink-0 mt-0.5 inline-flex items-center justify-center rounded-full text-white text-[10px] font-mono px-2 py-0.5 ${
+                  r.badge === "verified"
+                    ? "bg-emerald-600"
+                    : r.badge === "mismatch"
+                      ? "bg-red-600"
+                      : "bg-zinc-500"
+                }`}
+              >
+                {r.badge === "verified"
+                  ? "✓ verified"
+                  : r.badge === "mismatch"
+                    ? "≠ mismatch"
+                    : "checking"}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                  {r.text}
+                </p>
+                <p className="text-[11px] font-mono text-zinc-500 truncate">
+                  {r.source}
+                </p>
+              </div>
+              {r.badge === "checking" && (
+                <Spinner small />
+              )}
+            </li>
+          ))}
+        </ul>
+        <div className="px-4 py-3 text-[11px] text-zinc-500 dark:text-zinc-500 border-t border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/40">
+          Each row links to the actual statute on legislation.gov.uk. Click to land on the exact passage.
+        </div>
+      </div>
     </div>
   );
 }
