@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   ExtractedDocument,
   ResponseAnalysis,
@@ -542,7 +542,7 @@ export default function Home() {
               <p className="text-xs text-zinc-500 mt-0.5">answer the letter</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {stage !== "upload" && (
               <button
                 onClick={reset}
@@ -551,6 +551,7 @@ export default function Home() {
                 Start over
               </button>
             )}
+            <ThemeToggle />
             <a
               href="https://github.com/Ridwannurudeen/paperwork"
               target="_blank"
@@ -563,7 +564,7 @@ export default function Home() {
               </svg>
               Source
             </a>
-            <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+            <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
@@ -772,6 +773,58 @@ function UploadStage({
         <Stat number="3" unit="languages" label="English · German · ready for any Latin/Cyrillic/Greek script" />
       </section>
 
+      {/* How it works — moved above the demo so visitors understand the
+          product before they're invited to try it. */}
+      <section id="how-it-works" className="flex flex-col gap-8">
+        <div className="flex flex-col gap-3 max-w-3xl">
+          <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="h-px w-6 bg-zinc-300 dark:bg-zinc-700" />
+            How it works
+          </span>
+          <h3 className="text-3xl sm:text-4xl font-semibold tracking-tight leading-tight">
+            Four agents in series. <span className="text-zinc-500 dark:text-zinc-400">Trust spine end to end.</span>
+          </h3>
+          <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">
+            Each stage feeds the next. The verifier double-checks the draft
+            against the actual statute before you see it; the harden loop
+            attacks the result before you send it. You see every step.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] gap-3 lg:gap-2 items-stretch">
+          <HowCard
+            step="01"
+            title="Read"
+            icon={<EyeIcon />}
+            body="Vision model extracts authority, deadline, identifiers, key facts. Translates non-English letters to English on the side."
+            tone="zinc"
+          />
+          <PipelineArrow />
+          <HowCard
+            step="02"
+            title="Draft & ground"
+            icon={<PenIcon />}
+            body="Web-grounded analyze ranks every realistic response option. Web-grounded draft writes the letter in the source language and proper legal register."
+            tone="emerald"
+          />
+          <PipelineArrow />
+          <HowCard
+            step="03"
+            title="Verify"
+            icon={<ShieldCheckIcon />}
+            body="Streaming verifier extracts every citation and checks each against legislation.gov.uk / eur-lex / gov.uk in real time. Auto-fix rewrites the broken ones."
+            tone="emerald"
+          />
+          <PipelineArrow />
+          <HowCard
+            step="04"
+            title="Harden"
+            icon={<SwordIcon />}
+            body="A counterparty agent attacks. A researcher gathers public evidence. A reviser rewrites. The audit trail goes in the packet."
+            tone="blue"
+          />
+        </div>
+      </section>
+
       {/* Demo CTA card */}
       <section id="demos" className="relative rounded-2xl border-2 border-emerald-300 dark:border-emerald-900 bg-gradient-to-br from-emerald-50 via-white to-emerald-50/60 dark:from-emerald-950/40 dark:via-zinc-950 dark:to-emerald-950/40 p-6 sm:p-7 shadow-sm">
         <div className="flex flex-col gap-5">
@@ -817,45 +870,6 @@ function UploadStage({
               onClick={() => onLoadDemo("uk-dwp-corrupted")}
             />
           </div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="flex flex-col gap-6">
-        <div>
-          <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-zinc-500 dark:text-zinc-400">
-            <span className="h-px w-6 bg-zinc-300 dark:bg-zinc-700" />
-            How it works
-          </span>
-          <h3 className="mt-3 text-3xl font-semibold tracking-tight max-w-2xl">
-            Four agents in series. Trust spine end to end.
-          </h3>
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <HowCard
-            step="01"
-            title="Read"
-            body="Vision model extracts authority, deadline, identifiers, key facts. Translates non-English letters to English on the side."
-            tone="zinc"
-          />
-          <HowCard
-            step="02"
-            title="Draft & ground"
-            body="Web-grounded analyze ranks every realistic response option. Web-grounded draft writes the letter in the source language and proper legal register."
-            tone="emerald"
-          />
-          <HowCard
-            step="03"
-            title="Verify"
-            body="Streaming verifier extracts every citation, checks each against legislation.gov.uk / eur-lex / gov.uk in real time. Auto-fix rewrites the broken ones."
-            tone="emerald"
-          />
-          <HowCard
-            step="04"
-            title="Harden"
-            body="A counterparty agent attacks. A researcher gathers public evidence. A reviser rewrites. The audit trail goes in the packet."
-            tone="blue"
-          />
         </div>
       </section>
 
@@ -913,12 +927,48 @@ function UploadStage({
         </div>
       </section>
 
+      {/* Final CTA section — strong invitation before the upload zone. */}
+      <section className="rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 dark:from-emerald-950 dark:via-zinc-950 dark:to-blue-950 p-8 sm:p-12 text-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.12),_transparent_50%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_rgba(59,130,246,0.10),_transparent_50%)] pointer-events-none" />
+        <div className="relative flex flex-col items-center gap-5 max-w-2xl mx-auto">
+          <span className="text-[11px] uppercase tracking-[0.18em] font-medium text-emerald-300 dark:text-emerald-400">
+            Ready when you are
+          </span>
+          <h3 className="text-3xl sm:text-5xl font-semibold tracking-tight leading-[1.05] text-white">
+            Stop signing letters{" "}
+            <span className="bg-gradient-to-r from-emerald-300 to-blue-300 bg-clip-text text-transparent">
+              you don&apos;t fully read.
+            </span>
+          </h3>
+          <p className="text-zinc-300 dark:text-zinc-300 max-w-xl">
+            Try a finished demo, or upload the letter on your kitchen table.
+            No signup. No persistence. Each draft is a draft for your review —
+            and every citation in it is verifiable against a primary source.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button
+              onClick={() => onLoadDemo("uk-dwp")}
+              className="rounded-full bg-white text-zinc-900 hover:bg-zinc-100 transition-colors px-6 py-3 text-sm font-medium shadow-md hover:shadow-lg inline-flex items-center gap-2"
+            >
+              See the live demo →
+            </button>
+            <a
+              href="#upload"
+              className="rounded-full border border-zinc-700 dark:border-zinc-700 text-zinc-200 hover:bg-zinc-800 transition-colors px-6 py-3 text-sm font-medium inline-flex items-center gap-2"
+            >
+              Upload your letter
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* Or upload your own */}
-      <section className="flex flex-col gap-5 border-t border-zinc-200 dark:border-zinc-800 pt-12">
+      <section id="upload" className="flex flex-col gap-5 pt-4 scroll-mt-24">
         <div>
           <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-zinc-500 dark:text-zinc-400">
             <span className="h-px w-6 bg-zinc-300 dark:bg-zinc-700" />
-            Or upload your own letter
+            Upload your own letter
           </span>
           <h3 className="mt-3 text-3xl font-semibold tracking-tight">
             Drop a PDF or photo. Multiple files OK.
@@ -1039,11 +1089,13 @@ function HowCard({
   step,
   title,
   body,
+  icon,
   tone,
 }: {
   step: string;
   title: string;
   body: string;
+  icon: React.ReactNode;
   tone: "zinc" | "emerald" | "blue";
 }) {
   const accent = {
@@ -1051,16 +1103,158 @@ function HowCard({
     emerald: "text-emerald-600 dark:text-emerald-400",
     blue: "text-blue-600 dark:text-blue-400",
   }[tone];
+  const iconBg = {
+    zinc: "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300",
+    emerald: "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400",
+    blue: "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400",
+  }[tone];
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5 hover:border-zinc-400 dark:hover:border-zinc-700 hover:shadow-sm transition-all">
-      <div className="flex items-baseline justify-between mb-3">
-        <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">{title}</h4>
+    <div className="relative group rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5 hover:border-zinc-400 dark:hover:border-zinc-700 hover:shadow-md transition-all flex flex-col gap-3 h-full">
+      <div className="flex items-center justify-between">
+        <div className={`w-10 h-10 rounded-lg ${iconBg} flex items-center justify-center`}>
+          {icon}
+        </div>
         <span className={`text-xs font-mono ${accent}`}>{step}</span>
       </div>
+      <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">{title}</h4>
       <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
         {body}
       </p>
     </div>
+  );
+}
+
+function PipelineArrow() {
+  return (
+    <div
+      className="hidden lg:flex items-center justify-center text-zinc-300 dark:text-zinc-700 -mx-2 z-10"
+      aria-hidden="true"
+    >
+      <svg
+        viewBox="0 0 16 16"
+        width="20"
+        height="20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M3 8h10M9 4l4 4-4 4" />
+      </svg>
+    </div>
+  );
+}
+
+function ThemeToggle() {
+  const [mounted, setMounted] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains("dark"));
+    setMounted(true);
+  }, []);
+
+  function toggle() {
+    const next = !isDark;
+    if (next) {
+      document.documentElement.classList.add("dark");
+      try {
+        localStorage.setItem("theme", "dark");
+      } catch {}
+    } else {
+      document.documentElement.classList.remove("dark");
+      try {
+        localStorage.setItem("theme", "light");
+      } catch {}
+    }
+    setIsDark(next);
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      type="button"
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      className="inline-flex items-center justify-center rounded-full border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors w-8 h-8 text-zinc-700 dark:text-zinc-300"
+    >
+      {/* During SSR / before hydration, show a neutral placeholder so we don't flash the wrong icon. */}
+      {!mounted ? (
+        <span className="w-3.5 h-3.5 rounded-full border-2 border-current opacity-40" />
+      ) : isDark ? (
+        // sun
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+        </svg>
+      ) : (
+        // moon
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function PenIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 19l7-7 3 3-7 7-3-3z" />
+      <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+      <path d="M2 2l7.586 7.586" />
+      <circle cx="11" cy="11" r="2" />
+    </svg>
+  );
+}
+
+function ShieldCheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <path d="M9 12l2 2 4-4" />
+    </svg>
+  );
+}
+
+function SwordIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
+      <path d="M13 19l6-6" />
+      <path d="M16 16l4 4" />
+      <path d="M19 21l2-2" />
+    </svg>
   );
 }
 
