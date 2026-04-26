@@ -82,7 +82,7 @@ Every demo case starts from a real publicly-posted forum thread. The applicant's
 - **No DB**: case state is client-side in the React tree; nothing persisted server-side after the response is delivered
 - **No auth**: every session is anonymous and ephemeral
 
-Code lives at `https://passage.gudman.xyz` (artifact for review available on request).
+Live demo at `https://passage.gudman.xyz`. Source at `https://github.com/Ridwannurudeen/paperwork`.
 
 ## What's intentionally not in v1
 
@@ -110,4 +110,4 @@ Solo. Self-funded. No prior law-firm or government-services experience — built
 
 [Your email]
 [Your X handle]
-GitHub: (link to repo on request)
+GitHub: https://github.com/Ridwannurudeen/paperwork
