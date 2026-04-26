@@ -929,12 +929,12 @@ function UploadStage({
             <span className="font-medium text-zinc-800 dark:text-zinc-200">
               Voice input:
             </span>{" "}
-            If you click <span className="font-mono">Speak</span> below, your
-            audio is transcribed by your browser&apos;s built-in speech
-            service (Google in Chrome, Microsoft in Edge, Apple in Safari) —
-            same flow as any voice search. We never see the audio; we only
-            receive the transcribed text. Read-aloud (on the response page)
-            runs entirely on your device.
+            If you click <span className="font-mono">Speak</span>{" "}
+            below, your audio is transcribed by your browser&apos;s built-in
+            speech service (Google in Chrome, Microsoft in Edge, Apple in
+            Safari) — same flow as any voice search. We never see the audio;
+            we only receive the transcribed text. Read-aloud (on the
+            response page) runs entirely on your device.
           </p>
           <p>
             <span className="font-medium text-zinc-800 dark:text-zinc-200">
