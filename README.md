@@ -11,8 +11,9 @@ AI that reads adverse government letters and drafts a defensible response — ev
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](#license)
 [![Live demo](https://img.shields.io/badge/demo-passage.gudman.xyz-10b981)](https://passage.gudman.xyz)
+[![Watch demo](https://img.shields.io/badge/watch_demo-YouTube-ff0000?logo=youtube&logoColor=white)](https://youtu.be/xfSDeDS_DAg)
 
-[**🌐 Live demo**](https://passage.gudman.xyz) · [Why](#why-paperwork-exists) · [How it works](#how-it-works) · [Quickstart](#quickstart) · [Architecture](#architecture) · [Roadmap](#roadmap)
+[**🌐 Live demo**](https://passage.gudman.xyz) · [**▶ Watch demo (YouTube)**](https://youtu.be/xfSDeDS_DAg) · [Why](#why-paperwork-exists) · [How it works](#how-it-works) · [Quickstart](#quickstart) · [Architecture](#architecture) · [Roadmap](#roadmap)
 
 </div>
 

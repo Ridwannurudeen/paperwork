@@ -1,7 +1,9 @@
 # Cerebral Valley × Anthropic — "Built with Opus 4.7" Submission
 
 **Project name**: Paperwork
+**Demo video**: https://youtu.be/xfSDeDS_DAg
 **Live URL**: https://passage.gudman.xyz
+**Source**: https://github.com/Ridwannurudeen/paperwork
 **Tagline**: AI that reads adverse government letters and drafts a defensible response packet — citations verified against primary sources, hardened against the issuing authority.
 **Team size**: Solo
 **Build window**: April 21–26, 2026
