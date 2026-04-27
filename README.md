@@ -155,7 +155,7 @@ Open http://localhost:3000 — click any of the three pre-loaded demo cases on t
 
 ### Try it without installing anything
 
-Visit **[passage.gudman.xyz](https://passage.gudman.xyz)** and click **🇬🇧 UK · 5/5 verified** on the homepage. The response, citation audit, and pre-recorded harden replay all load instantly — no signup, no waiting.
+Visit **[passage.gudman.xyz](https://passage.gudman.xyz)** and click any of the three demo tiles on the homepage (UK / German / corrupted). The response, citation audit, and pre-recorded harden replay all load instantly — no signup, no waiting.
 
 ### Use the API directly
 

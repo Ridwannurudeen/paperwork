@@ -1,7 +1,30 @@
 {
-  "name": "passage",
+  "name": "paperwork",
   "version": "0.1.0",
   "private": true,
+  "description": "AI that reads adverse government letters and drafts a defensible response packet — every legal citation independently verified against legislation.gov.uk and other primary sources before it lands in your packet. Built on Claude Opus 4.7.",
+  "homepage": "https://passage.gudman.xyz",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ridwannurudeen/paperwork.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ridwannurudeen/paperwork/issues"
+  },
+  "license": "MIT",
+  "author": "Ridwan Nurudeen",
+  "keywords": [
+    "anthropic",
+    "claude",
+    "opus-4-7",
+    "legal-tech",
+    "agentic",
+    "citation-verification",
+    "web-search",
+    "multi-agent",
+    "next.js",
+    "typescript"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",

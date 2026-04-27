@@ -29,7 +29,7 @@ The work itself is **adversarial reasoning over jurisdictional rules**. Citation
 
 ## The solution
 
-Paperwork is a multi-agent system on **`claude-opus-4-7`** with five HTTP endpoints:
+Paperwork is a multi-agent system on **`claude-opus-4-7`** with seven HTTP endpoints:
 
 | Endpoint | Agent | What it does |
 |---|---|---|
@@ -98,7 +98,7 @@ Most AI-legal tools fail in the same way: the model produces a citation, the use
 
 **2. Output verification** (verify route). After the draft is finished, an extractor agent pulls every legal citation from the response text into a structured list. A verifier agent — also tool-calling — independently checks each one against a primary source (legislation.gov.uk, eur-lex, gov.uk, agency portals, court registries) and returns a status: `verified`, `mismatch`, `not_found`, `ambiguous`, or `skipped`. The user sees the audit table in the UI and again in the downloadable packet PDF. Each verified citation includes the exact text quoted from the source and a clickable URL.
 
-The two checkpoints are independent. Grounding makes the model less likely to fabricate; verification catches it when grounding fails. Demonstrated on a deliberately-corrupted variant of the UK DWP draft: when "regulation 18" is mangled to "regulation 19" in the letter text, the verifier returns `mismatch` for that citation alone, links to the correct legislation.gov.uk regulation-18 page, and quotes the actual £16,000 capital-limit passage. Public artifact at `/demo/uk-dwp-corrupted.json`.
+The two checkpoints are independent. Grounding makes the model less likely to fabricate; verification catches it when grounding fails. Demonstrated on a deliberately-corrupted variant of the UK DWP draft: when "regulation 18" is mangled to "regulation 19" in the letter text, the verifier returns `mismatch` for that citation alone, links to the correct legislation.gov.uk regulation-18 page, and quotes the actual £16,000 capital-limit passage. Public artifact at https://passage.gudman.xyz/demo/uk-dwp-corrupted.json.
 
 ## Failure modes (what we know breaks)
 
@@ -140,6 +140,6 @@ Solo. Self-funded. No prior law-firm or government-services experience — built
 
 ## Contact
 
-[Your email]
-[Your X handle]
-GitHub: https://github.com/Ridwannurudeen/paperwork
+- **Source**: https://github.com/Ridwannurudeen/paperwork
+- **Live**: https://passage.gudman.xyz
+- **Demo video**: https://youtu.be/xfSDeDS_DAg

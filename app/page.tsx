@@ -1086,7 +1086,7 @@ function UploadStage({
       {/* Stats strip */}
       <section className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-6 border-y border-zinc-200 dark:border-zinc-800 py-8">
         <Stat number="6,265" unit="char draft" label="UK DWP demo letter, full UK welfare-tribunal register" />
-        <Stat number="13" unit="citations" label="Independently checked against gesetze-im-internet.de on the German demo" />
+        <Stat number="11/13" unit="verified" label="Citations on the German demo · 2 caught as mismatches against gesetze-im-internet.de" />
         <Stat number="0" unit="fabrications" label="Verifier catches its own bad citations before they reach you" />
         <Stat number="3" unit="languages" label="English · German · ready for any Latin/Cyrillic/Greek script" />
       </section>
